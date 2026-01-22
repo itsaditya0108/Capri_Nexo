@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capri Nexo</title>
+    <link rel="stylesheet" href="/css/dashboard.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+
+    <!-- SIDEBAR (Desktop) -->
+    <div class="sidebar">
+        <div class="brand">capri <span>nexo</span></div>
+        <ul class="nav-links">
+            <li class="nav-item active" onclick="switchView('dashboard', this)">
+                <ion-icon name="people-outline"></ion-icon>
+                <span>Groupchat</span>
+            </li>
+            <li class="nav-item" onclick="switchView('chat', this)">
+                <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+                <span>Messages</span>
+            </li>
+            <li class="nav-item" onclick="switchView('profile', this)">
+                <ion-icon name="person-outline"></ion-icon>
+                <span>Profile</span>
+            </li>
+        </ul>
+        <div class="user-profile-summary" onclick="switchView('profile', document.querySelectorAll('.nav-item')[2])">
+            <div class="avatar-small" id="navAvatar">U</div>
+            <div style="font-weight: 600; font-size: 14px;" id="navName">User</div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV (Mobile) -->
+    <div class="bottom-nav">
+        <div class="bottom-nav-item active" onclick="switchView('dashboard', this, true)">
+            <ion-icon name="people-outline"></ion-icon>
+        </div>
+        <div class="bottom-nav-item" onclick="switchView('chat', this, true)">
+            <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+        </div>
+        <div class="bottom-nav-item" onclick="switchView('profile', this, true)">
+            <ion-icon name="person-outline"></ion-icon>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+
+        <!-- GROUPCHAT VIEW (Renamed from Dashboard) -->
+        <div id="view-dashboard" class="view-container">
+            <!-- Placeholder for future Groupchat feature -->
+            <!--            <div style="text-align: center; margin-top: 50px;">-->
+            <!--                <ion-icon name="people-outline" style="font-size: 64px; color: #dbdbdb;"></ion-icon>-->
+            <!--                <h2 style="margin-top: 16px;">Groupchat Feed</h2>-->
+            <!--                <p style="color: var(&#45;&#45;text-secondary)">Connect with your community. Coming soon.</p>-->
+            <!--            </div>-->
+            <div id="groupList" class="conversation-list"></div>
+        </div>
+
+        <!-- MESSAGES VIEW -->
+        <div id="view-chat" class="view-container hidden" style="padding: 20px; height: 100%;">
+            <div class="chat-layout">
+                <div class="chat-sidebar">
+                    <div class="chat-header-bar">
+                        <span>Direct</span>
+                        <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;"
+                            onclick="startNewChat()">New Chat</button>
+                    </div>
+                    <!-- NEW CHAT SEARCH -->
+                    <div id="newChatBox" class="hidden">
+                        <input type="text" id="userSearchInput" placeholder="Search user..."
+                            style="width:100%; padding:8px; margin-bottom:8px;" />
+                        <div id="userSearchResults"></div>
+                    </div>
+
+                    <div class="conversation-list" id="conversationList">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <div class="chat-main" id="chatMain">
+                    <!-- Mobile Back Header -->
+                    <!-- Chat Header (Visible on Desktop & Mobile) -->
+                    <div class="chat-header-bar" id="chatHeader"
+                        style="border-bottom: 1px solid var(--border-color); display: flex;">
+                        <ion-icon name="arrow-back-outline" id="chatBackBtn"
+                            style="font-size: 24px; cursor: pointer; margin-right: 10px;"
+                            onclick="closeMobileChat()"></ion-icon>
+                        <span id="chatHeaderName" style="font-weight: 600;">Chat</span>
+                    </div>
+
+                    <div class="chat-messages" id="messageList">
+                        <div id="emptyState"
+                            style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center;">
+                            <ion-icon name="paper-plane-outline"
+                                style="font-size: 50px; margin-bottom: 12px;"></ion-icon>
+                            <div id="typingIndicator" class="typing hidden"></div>
+
+                            <h3>Your Messages</h3>
+                            <p style="color: grey;">Send private photos and messages to a friend or group.</p>
+                            <button class="btn btn-primary" style="margin-top: 20px;" onclick="startNewChat()">Send
+                                Message</button>
+                        </div>
+                    </div>
+
+
+                    <div class="chat-input-area hidden" id="inputArea">
+
+                        <input type="text" id="messageInput" class="message-input" placeholder="Message..."
+                            onkeydown="if(event.key==='Enter') sendMessage()">
+                        <button class="send-btn-text" id="sendBtn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROFILE VIEW -->
+        <div id="view-profile" class="view-container hidden">
+            <div class="card">
+                <h2>Profile</h2>
+
+                <div class="info-row">
+                    <span class="label">Full Name</span>
+                    <span class="value" id="profileName">Loading...</span>
+                </div>
+
+                <div class="info-row">
+                    <span class="label">Email</span>
+                    <div class="value">
+                        <span id="profileEmail">...</span>
+                        <!-- Email verified status is usually handled via login flow, but we can show status -->
+                        <span class="badge success">Verified</span>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <span class="label">Phone Number</span>
+                    <div class="value" style="flex-direction: column; align-items: flex-end;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span id="profilePhone">...</span>
+                            <span id="phoneStatusBadge" class="badge warning">Unverified</span>
+                        </div>
+                        <div style="margin-top: 4px;">
+                            <button class="btn btn-link" onclick="handlePhoneAction()" id="phoneActionBtn">Verify
+                                Phone</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-row">
+                    <span class="label">Account Status</span>
+                    <span class="value" id="profileStatus">Active</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Security</h2>
+                <div class="info-row">
+                    <span class="label">Password</span>
+                    <a href="/forgot-password.html" class="btn btn-link">Change Password</a>
+                </div>
+                <div class="info-row">
+                    <span class="label">Session</span>
+                    <button class="btn text-danger" onclick="logout()" style="background: none; padding: 0;">Log
+                        Out</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* ================= CONFIG ================= */
+        // Allow overriding via query param for testing ?chatUrl=...
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Dynamic CHAT_BASE that works on localhost AND network (192.168.x.x)
+        const hostname = window.location.hostname || 'localhost';
+        const protocol = window.location.protocol || 'http:';
+        const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8082`;
+        let user = null;
+        let token = null;
+        let activeConversationId = null;
+        let eventSource = null;
+        let currentInbox = [];
+
+
+        /* ================= INIT ================= */
+        document.addEventListener("DOMContentLoaded", () => {
+            const userData = sessionStorage.getItem("user");
+            token = sessionStorage.getItem("accessToken");
+
+            if (!userData || !token) {
+                window.location.href = "/login.html";
+                return;
+            }
+
+            user = JSON.parse(userData);
+            hydrateUser();
+            loadInbox();
+            loadGroups();
+        });
+
+        /* ================= USER ================= */
+        function hydrateUser() {
+            document.getElementById("navName").textContent = user.name || "User";
+            document.getElementById("navAvatar").textContent =
+                (user.name || "U")[0].toUpperCase();
+
+            document.getElementById("profileName").textContent = user.name || "User";
+            document.getElementById("profileEmail").textContent = maskEmail(user.email || "");
+            document.getElementById("profilePhone").textContent = maskPhone(user.phone);
+            document.getElementById("profileStatus").textContent = user.status || "Active";
+
+            const phoneBadge = document.getElementById("phoneStatusBadge");
+            const phoneBtn = document.getElementById("phoneActionBtn");
+
+            if (user.phoneVerified) {
+                phoneBadge.className = "badge success";
+                phoneBadge.textContent = "Verified";
+                phoneBtn.textContent = "Change Phone Number";
+            } else {
+                phoneBadge.className = "badge warning";
+                phoneBadge.textContent = "Not Verified";
+                phoneBtn.textContent = "Verify Now";
+            }
+        }
+
+        /* ================= NAV ================= */
+        function switchView(viewId, navEl, isMobile = false) {
+            ["view-dashboard", "view-chat", "view-profile"].forEach(id => {
+                document.getElementById(id).classList.add("hidden");
+            });
+
+            document.getElementById(`view-${viewId}`).classList.remove("hidden");
+
+            if (viewId === "dashboard") {
+                loadGroups(); // ✅ THIS LINE
+            }
+            document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
+            document.querySelectorAll(".bottom-nav-item").forEach(el => el.classList.remove("active"));
+
+            if (navEl) navEl.classList.add("active");
+        }
+
+        /* ================= HELPERS ================= */
+        function maskEmail(email) {
+            if (!email) return "";
+            const [n, d] = email.split("@");
+            return n.slice(0, 2) + "***@" + d;
+        }
+
+        function maskPhone(p) {
+            return p ? p.slice(0, 3) + "****" + p.slice(-2) : "Not Set";
+        }
+
+        /* ================= LOGOUT ================= */
+        async function logout() {
+            const refreshToken = sessionStorage.getItem("refreshToken");
+
+            if (refreshToken) {
+                try {
+                    await fetch("/api/auth/logout", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer " + token
+                        },
+                        body: JSON.stringify({ refreshToken })
+                    });
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            sessionStorage.clear();
+            window.location.href = "/login.html";
+        }
+
+        /* ================= CHAT ================= */
+        async function loadInbox() {
+            try {
+                const res = await fetch(`${CHAT_BASE}/api/inbox`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        console.warn("Session expired, logging out...");
+                        logout();
+                        return;
+                    }
+                    console.error("Inbox API error:", res.status, await res.text());
+                    return;
+                }
+
+                const inbox = await res.json();
+
+                if (!Array.isArray(inbox)) {
+                    console.error("Inbox response is not an array:", inbox);
+                    return;
+                }
+
+                currentInbox = inbox;
+                renderInbox(inbox);
+
+            } catch (e) {
+                console.error("Inbox error", e);
+            }
+        }
+
+        async function loadGroups() {
+            try {
+                const res = await fetch(`${CHAT_BASE}/api/groups`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (!res.ok) {
+                    console.error("Group API error", res.status);
+                    return;
+                }
+
+                const groups = await res.json();
+                renderGroups(groups);
+
+            } catch (e) {
+                console.error("Load groups error", e);
+            }
+        }
+
+        function renderInbox(data) {
+            const list = document.getElementById("conversationList");
+            list.innerHTML = "";
+
+            data.forEach(c => {
+                const div = document.createElement("div");
+                div.className = "conversation-item";
+
+                const title =
+                    c.otherUserName ||
+                    c.groupName ||
+                    c.username ||
+                    c.name ||
+                    "Unknown";
+                const avatar = title[0].toUpperCase();
+
+                div.onclick = () => openChat(c.conversationId);
+
+                div.innerHTML = `
+            <div class="user-avatar">
+                <div style="width:100%;height:100%;background:#eee;
+                    display:flex;align-items:center;justify-content:center;font-weight:bold;">
+                    ${avatar}
+                </div>
+            </div>
+            <div class="conv-info">
+                <div class="conv-name">${title}</div>
+                <div class="conv-preview">
+                    ${c.lastMessage || "No messages"}
+                </div>
+            </div>
+            ${c.unreadCount > 0
+                        ? `<div class="badge success">${c.unreadCount}</div>`
+                        : ""}
+        `;
+
+                list.appendChild(div);
+            });
+        }
+
+        function renderGroups(groups) {
+            const list = document.getElementById("groupList");
+            list.innerHTML = "";
+
+            groups.forEach(g => {
+                const div = document.createElement("div");
+                div.className = "conversation-item";
+
+                // ✅ THIS is where openGroupChat belongs
+                div.onclick = () => openGroupChat(
+                    g.conversationId,
+                    g.groupName
+                );
+
+                div.innerHTML = `
+            <div class="user-avatar">
+                <div style="width:100%;height:100%;background:#eee;
+                    display:flex;align-items:center;justify-content:center;font-weight:bold;">
+                    ${g.groupName[0].toUpperCase()}
+                </div>
+            </div>
+            <div class="conv-info">
+                <div class="conv-name">${g.groupName}</div>
+                <div class="conv-preview">
+                    ${g.lastMessage || "No messages"}
+                </div>
+            </div>
+        `;
+
+                list.appendChild(div);
+            });
+        }
+
+
+        function openGroupChat(conversationId, groupName) {
+            // Switch to chat view
+            switchView("chat", document.querySelectorAll(".nav-item")[1]);
+
+            // Set header name
+            document.getElementById("chatHeaderName").textContent = groupName;
+
+            // Open chat normally
+            openChat(conversationId);
+        }
+
+
+        async function openChat(id) {
+            activeConversationId = id;
+
+            document.getElementById("inputArea").classList.remove("hidden");
+
+            if (window.innerWidth <= 768) {
+                document.getElementById("chatMain").classList.add("active");
+            }
+
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+
+            const convo = currentInbox.find(c => c.conversationId === id);
+
+            if (convo) {
+                if (convo.type === "PRIVATE" && convo.otherUserName) {
+                    document.getElementById("chatHeaderName").textContent = convo.otherUserName;
+                }
+
+                if (convo.type === "GROUP" && convo.groupName) {
+                    document.getElementById("chatHeaderName").textContent = convo.groupName;
+                }
+            }
+
+            const res = await fetch(`${CHAT_BASE}/api/conversations/${id}/messages`, {
+                headers: { "Authorization": "Bearer " + token }
+            });
+
+            await fetch(`${CHAT_BASE}/api/conversations/${id}/read`, {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            });
+
+            const msgs = await res.json();
+            const box = document.getElementById("messageList");
+            box.innerHTML = "";
+            msgs.reverse().forEach(renderMessage);
+            scrollToBottom();
+
+            /* ===== SSE ===== */
+            eventSource = new EventSource(
+                `${CHAT_BASE}/api/sse/conversations/${id}?token=${encodeURIComponent(token)}`
+            );
+
+
+            eventSource.onmessage = (e) => {
+                renderMessage(JSON.parse(e.data));
+                scrollToBottom();
+                loadInbox();
+            };
+
+            eventSource.addEventListener("typing", e => {
+                const data = JSON.parse(e.data);
+                if (data.userId === user.userId) return;
+
+                const el = document.getElementById("typingIndicator");
+                if (el) {
+                    el.textContent = `${data.username} is typing...`;
+                    el.classList.remove("hidden");
+                    setTimeout(() => el.classList.add("hidden"), 3000);
+                }
+            });
+
+            eventSource.addEventListener("error", (e) => {
+                console.error("SSE error", e);
+                eventSource.close();
+            });
+
+
+
+
+            eventSource.addEventListener("read", e => {
+                const data = JSON.parse(e.data);
+                const msgEl = document.querySelector(
+                    `[data-message-id="${data.messageId}"]`
+                );
+
+                if (msgEl) {
+                    msgEl.classList.add("seen");
+                    const status = msgEl.querySelector(".status");
+                    if (status) status.innerText = "Seen";
+                }
+            });
+
+            // Re-render inbox to update active state
+            loadInbox();
+        }
+
+        // ...
+        function renderMessage(msg) {
+            const box = document.getElementById("messageList");
+
+            // Robust ID check
+            const myId = user.userId || user.id;
+            const isMe = Number(msg.senderId) === Number(myId);
+
+            const row = document.createElement("div");
+            row.className = `message-row ${isMe ? "right" : "left"}`;
+            // ...
+            row.dataset.messageId = msg.messageId;
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            bubble.textContent = msg.content;
+
+            row.appendChild(bubble);
+
+            if (isMe) {
+                const status = document.createElement("div");
+                status.className = "status";
+                status.innerText = "Sent";
+                row.appendChild(status);
+            }
+
+            box.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function scrollToBottom() {
+            const box = document.getElementById("messageList");
+            if (box) box.scrollTop = box.scrollHeight;
+        }
+
+        /* ================= TYPING ================= */
+        let typingTimeout;
+
+        document.getElementById("messageInput").addEventListener("input", () => {
+            if (!activeConversationId) return;
+
+            fetch(`${CHAT_BASE}/api/conversations/${activeConversationId}/typing`, {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            });
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                const el = document.getElementById("typingIndicator");
+                if (el) el.classList.add("hidden");
+            }, 3000);
+        });
+
+        /* ================= SEND ================= */
+        async function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const text = input.value.trim();
+            if (!text || !activeConversationId) return;
+
+            await fetch(`${CHAT_BASE}/api/conversations/${activeConversationId}/messages`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ content: text })
+            });
+
+            input.value = "";
+        }
+
+        /* ================= NEW CHAT ================= */
+
+        let searchTimeout;
+
+        // Show search box
+        function startNewChat() {
+            const box = document.getElementById("newChatBox");
+            box.classList.remove("hidden");
+            document.getElementById("userSearchInput").focus();
+        }
+
+        // Search users while typing
+        document.getElementById("userSearchInput").addEventListener("input", (e) => {
+            const q = e.target.value.trim();
+            clearTimeout(searchTimeout);
+
+            if (q.length < 2) {
+                document.getElementById("userSearchResults").innerHTML = "";
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch(`${CHAT_BASE}/api/conversations/users/search?q=${encodeURIComponent(q)}`, {
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    }
+                })
+                    .then(res => res.json())
+                    .then(renderUserSearchResults)
+                    .catch(err => console.error("User search error", err));
+            }, 300);
+        });
+
+        // Render results
+        function renderUserSearchResults(users) {
+            const box = document.getElementById("userSearchResults");
+            box.innerHTML = "";
+
+            users.forEach(u => {
+                const div = document.createElement("div");
+                div.className = "conversation-item";
+                div.textContent = u.name;
+
+                div.onclick = () => startPrivateChat(u.userId);
+
+                box.appendChild(div);
+            });
+        }
+
+        // Create or open private chat
+        async function startPrivateChat(userId) {
+            try {
+                const res = await fetch(`${CHAT_BASE}/api/conversations`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({
+                        type: "PRIVATE",
+                        participantUserId: userId
+                    })
+                });
+
+                if (!res.ok) {
+                    alert("Failed to create conversation");
+                    return;
+                }
+
+                const data = await res.json();
+
+                document.getElementById("userSearchResults").innerHTML = "";
+                document.getElementById("userSearchInput").value = "";
+                document.getElementById("newChatBox").classList.add("hidden");
+
+                openChat(data.conversationId);
+
+            } catch (e) {
+                console.error("Create chat error", e);
+            }
+        }
+
+
+        function closeMobileChat() {
+            document.getElementById("chatMain").classList.remove("active");
+        }
+    </script>
+
+</body>
+
+</html>

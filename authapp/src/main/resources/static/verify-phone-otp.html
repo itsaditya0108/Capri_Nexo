@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Verify Phone OTP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Phone OTP Verification</h2>
+
+    <div id="info" class="info"></div>
+
+    <form id="otpForm">
+        <input
+                id="otp"
+                placeholder="Enter 6-digit OTP"
+                maxlength="6"
+                required
+        />
+        <button type="submit">Verify OTP</button>
+    </form>
+
+    <div id="result" class="info"></div>
+</div>
+
+<script>
+    const user = JSON.parse(sessionStorage.getItem("user"));
+const flow = sessionStorage.getItem("verifyPhoneFlow");
+
+if (!user || !flow) {
+  window.location.href = "/dashboard.html";
+}
+
+function maskPhone(phone) {
+  return phone.slice(0, 3) + "*****" + phone.slice(-2);
+}
+
+let phone;
+const info = document.getElementById("info");
+
+if (flow === "VERIFY_EXISTING") {
+  phone = user.phone;
+  info.innerText = "OTP sent to " + maskPhone(phone);
+}
+
+if (flow === "CHANGE_PHONE") {
+  phone = sessionStorage.getItem("pendingPhone");
+  info.innerText = "OTP sent to " + maskPhone(phone);
+}
+
+
+    const otpForm = document.getElementById("otpForm");
+    const btn = otpForm.querySelector("button");
+    const result = document.getElementById("result");
+
+    otpForm.onsubmit = async function (e) {
+      e.preventDefault();
+      result.innerText = "";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("/api/auth/phone/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, otp: otp.value })
+        });
+
+        if (res.ok) {
+          // update cached user
+          user.phone = phone;
+          user.phoneVerified = true;
+          sessionStorage.setItem("user", JSON.stringify(user));
+
+          sessionStorage.removeItem("pendingPhone");
+          sessionStorage.removeItem("verifyPhoneFlow");
+
+          result.innerHTML =
+            "<b class='success'>Phone verified successfully</b>";
+
+          setTimeout(() => {
+            window.location.href = "/dashboard.html";
+          }, 1200);
+        } else {
+          const data = await res.json();
+          result.innerText = data.message || "Invalid OTP";
+        }
+      } catch (e) {
+        result.innerText = "Something went wrong";
+      } finally {
+        setTimeout(() => btn.disabled = false, 1500);
+      }
+    };
+</script>
+
+</body>
+</html>

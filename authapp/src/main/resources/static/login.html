@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>Login</h2>
+
+        <form id="loginForm">
+            <input id="email" placeholder="Email" required />
+            <div class="password-container">
+                <input id="password" type="password" placeholder="Password" required />
+                <span id="togglePassword" class="password-toggle" title="Show Password">
+                    <!-- Default: Eye Slash (Hidden) -->
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 4.5z">
+                        </path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </span>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+
+        <div id="loginResult" class="info"></div>
+
+        <div class="info">
+            <a href="/forgot-password.html">Forgot password?</a><br>
+            New user?
+            <a href="/register.html">Register</a>
+        </div>
+    </div>
+
+    <!-- NEW DEVICE VERIFICATION MODAL -->
+    <div id="deviceModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h3>New Device Detected</h3>
+            <p>Please enter the OTP sent to your email to verify this device.</p>
+
+            <input id="deviceOtp" placeholder="Enter OTP" maxlength="6" />
+
+            <div style="margin-bottom: 15px; text-align: left;">
+                <input type="checkbox" id="logoutOtherDevices" style="width: auto; margin-right: 8px;">
+                <label for="logoutOtherDevices" style="font-size: 14px; color: #555;">Secure my account (Logout other
+                    devices)</label>
+            </div>
+
+            <button onclick="verifyNewDevice()" style="width: 100%;">Verify Device</button>
+            <div id="modalResult" class="info error"></div>
+        </div>
+    </div>
+
+    <script>
+        const loginForm = document.getElementById("loginForm");
+        const loginResult = document.getElementById("loginResult");
+        const loginBtn = loginForm.querySelector("button");
+
+        // Password Toggle Logic
+        const togglePassword = document.getElementById("togglePassword");
+        const passwordInput = document.getElementById("password");
+
+        const eyeIcon = `<svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+        const eyeSlashIcon = `<svg viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 4.5z"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+        togglePassword.addEventListener("click", function () {
+            const type = passwordInput.getAttribute("type") === "password" ? "text" : "password";
+            passwordInput.setAttribute("type", type);
+
+            // Toggle Icon
+            this.innerHTML = type === "password" ? eyeSlashIcon : eyeIcon;
+        });
+
+        // Modal Logic
+        const modal = document.getElementById("deviceModal");
+        const modalResult = document.getElementById("modalResult");
+        let pendingEmail = "";
+
+        function closeModal() {
+            modal.style.display = "none";
+        }
+
+        async function verifyNewDevice() {
+            const otp = document.getElementById("deviceOtp").value.trim();
+            const logoutOthers = document.getElementById("logoutOtherDevices").checked;
+
+            if (!otp || otp.length < 6) {
+                modalResult.innerText = "Please enter a valid OTP";
+                return;
+            }
+
+            modalResult.innerText = "Verifying...";
+
+            try {
+                const res = await fetch("/api/auth/verify-new-device", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: pendingEmail,
+                        deviceId: buildDeviceContext().deviceId,
+                        otp: otp,
+                        logoutOtherDevices: logoutOthers
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    // Success!
+                    sessionStorage.setItem("accessToken", data.accessToken);
+                    sessionStorage.setItem("refreshToken", data.refreshToken);
+                    window.location.href = "/dashboard.html";
+                } else {
+                    modalResult.innerText = data.message || "Verification failed";
+                }
+
+            } catch (error) {
+                console.error(error);
+                modalResult.innerText = "Error verifying device";
+            }
+        }
+
+        function isValidEmail(email) {
+            return /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+        }
+
+        // Stable browser device ID
+        if (!localStorage.getItem("webDeviceId")) {
+            // Fallback for browsers that don't support crypto.randomUUID
+            const uuid = (crypto.randomUUID && crypto.randomUUID()) ||
+                (Math.random().toString(36).substring(2) + Date.now().toString(36));
+            localStorage.setItem("webDeviceId", uuid);
+        }
+
+        // WEB device context (TEMP FOR TESTING)
+        function buildDeviceContext() {
+            return {
+                deviceId: "web-" + localStorage.getItem("webDeviceId"),
+                manufacturer: "Browser",
+                deviceModel: navigator.userAgent.includes("Android")
+                    ? "Android Chrome"
+                    : "Desktop Browser",
+                osName: "WEB",
+                osVersion: navigator.platform,
+                appVersion: "web-test",
+                buildNumber: null,
+                deviceLanguage: navigator.language,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+        }
+
+        async function sendOtpAndRedirect() {
+            const email = sessionStorage.getItem("email");
+            if (!email) return;
+
+            await fetch("/api/auth/resend-otp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email })
+            });
+
+            window.location.href = "/verify-otp.html";
+        }
+
+        loginForm.onsubmit = async function (e) {
+            e.preventDefault();
+            loginResult.innerText = "";
+
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+
+            if (!isValidEmail(email)) {
+                loginResult.innerText = "Enter valid email";
+                return;
+            }
+
+            if (!password) {
+                loginResult.innerText = "Password required";
+                return;
+            }
+
+            loginBtn.disabled = true;
+
+            try {
+                const res = await fetch("/api/auth/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        deviceContext: buildDeviceContext()
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    // store tokens
+                    sessionStorage.setItem("accessToken", data.accessToken);
+                    sessionStorage.setItem("refreshToken", data.refreshToken);
+
+                    // optional user info
+                    sessionStorage.setItem("user", JSON.stringify({
+                        userId: data.userId,
+                        name: data.name,
+                        email: data.email,
+                        phone: data.phone,
+                        status: data.status,
+                        emailVerified: data.emailVerified,
+                        phoneVerified: data.phoneVerified
+                    }));
+
+                    window.location.href = "/dashboard.html";
+                    return;
+                }
+
+                if (data.error === "EMAIL_NOT_VERIFIED") {
+                    sessionStorage.setItem("email", email);
+                    loginResult.innerHTML = `
+                    <span class="error">
+                        Email not verified.
+                        <a href="javascript:void(0)" onclick="sendOtpAndRedirect()">Verify now</a>
+                    </span>
+                `;
+                } else if (data.error === "ACCOUNT_LOCKED" || res.status === 423) {
+                    loginResult.innerHTML = `
+                        <span class="error" style="font-weight: bold;">
+                            Account locked due to too many failed attempts.<br>
+                            Please try again in 20 minutes.
+                        </span>
+                     `;
+                } else if (data.error === "NEW_DEVICE_VERIFICATION_REQUIRED" || res.status === 403) {
+                    // Open Modal
+                    pendingEmail = email;
+                    modal.style.display = "block";
+                    loginResult.innerText = "";
+                } else {
+                    loginResult.innerText = data.message || "Login failed";
+                }
+
+            } catch (err) {
+                console.error(err);
+                loginResult.innerText = "Something went wrong. Please try again.";
+            } finally {
+                setTimeout(() => {
+                    loginBtn.disabled = false;
+                }, 1500);
+            }
+        };
+    </script>
+
+</body>
+
+</html>

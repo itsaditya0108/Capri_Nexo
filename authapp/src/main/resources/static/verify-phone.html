@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Change Phone Number</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="container">
+    <h2>Change Phone Number</h2>
+    <div class="subtitle">
+        Enter your new mobile number. We will verify it with OTP.
+    </div>
+
+    <form id="phoneForm">
+        <input
+                id="phone"
+                placeholder="New mobile number"
+                maxlength="10"
+                required
+        />
+        <button type="submit">Send OTP</button>
+    </form>
+
+    <div id="result" class="info"></div>
+</div>
+
+<script>
+    /* ===== GUARD ===== */
+    const user = JSON.parse(sessionStorage.getItem("user"));
+    if (!user) {
+      window.location.href = "/login.html";
+    }
+
+    function isValidPhone(phone) {
+      return /^[6-9]\d{9}$/.test(phone);
+    }
+
+    const phoneForm = document.getElementById("phoneForm");
+    const result = document.getElementById("result");
+    const btn = phoneForm.querySelector("button");
+
+    phoneForm.onsubmit = async function (e) {
+      e.preventDefault();
+      result.innerText = "";
+
+      const phone = document.getElementById("phone").value.trim();
+
+      if (!isValidPhone(phone)) {
+        result.innerText = "Enter a valid 10-digit mobile number";
+        return;
+      }
+
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("/api/auth/phone/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone })
+        });
+
+        if (res.ok) {
+          sessionStorage.setItem("pendingPhone", phone);
+          sessionStorage.setItem("verifyPhoneFlow", "CHANGE_PHONE");
+          window.location.href = "/verify-phone-otp.html";
+        } else {
+          const data = await res.json();
+          result.innerText = data.message || "Failed to send OTP";
+        }
+      } catch (e) {
+        result.innerText = "Something went wrong";
+      } finally {
+        setTimeout(() => btn.disabled = false, 1500);
+      }
+    };
+</script>
+
+</body>
+</html>

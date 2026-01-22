@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>Register</h2>
+
+        <form id="registerForm">
+            <input id="name" placeholder="Full Name" required />
+            <input id="email" placeholder="Email" required />
+            <input id="phone" placeholder="Mobile Number" maxlength="10" required />
+            <div class="password-container">
+                <input id="password" type="password" placeholder="Password" required />
+                <span id="togglePassword" class="password-toggle" title="Show Password">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 4.5z">
+                        </path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </span>
+            </div>
+            <button type="submit">Register</button>
+        </form>
+
+        <div id="result" class="info"></div>
+
+        <div class="info">
+            Already have an account?
+            <a href="/login.html">Login</a>
+        </div>
+    </div>
+
+    <script>
+        // =======================
+        // ELEMENT REFERENCES
+        // =======================
+        const registerForm = document.getElementById("registerForm");
+        const result = document.getElementById("result");
+        const registerBtn = registerForm.querySelector("button");
+
+        const nameInput = document.getElementById("name");
+        const emailInput = document.getElementById("email");
+        const phoneInput = document.getElementById("phone");
+        const passwordInput = document.getElementById("password");
+        const togglePassword = document.getElementById("togglePassword");
+
+        // =======================
+        // VALIDATION HELPERS
+        // =======================
+
+        function isValidEmail(email) {
+            return /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+        }
+
+        function isValidPhone(phone) {
+            return /^[6-9]\d{9}$/.test(phone);
+        }
+
+        function validatePassword(password) {
+    if (typeof password !== "string") {
+        return "Invalid password";
+    }
+
+    if (password.length < 8) {
+        return "Password must be at least 8 characters";
+    }
+
+    if (password.length > 72) {
+        return "Password too long";
+    }
+
+    if (/\s/.test(password)) {
+        return "Password cannot contain spaces";
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        return "Add at least one uppercase letter";
+    }
+
+    if (!/[a-z]/.test(password)) {
+        return "Add at least one lowercase letter";
+    }
+
+    if (!/[0-9]/.test(password)) {
+        return "Add at least one number";
+    }
+
+    if (!/[^\w\s]/.test(password)) {
+        return "Add at least one special character";
+    }
+
+    return null; // ✅ VALID
+}
+
+
+        // =======================
+        // INPUT HARDENING
+        // =======================
+
+        // Phone: numeric only
+        phoneInput.addEventListener("input", function () {
+            this.value = this.value.replace(/\D/g, "");
+        });
+
+        // =======================
+        // PASSWORD TOGGLE
+        // =======================
+
+        const eyeIcon = `
+            <svg viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+        `;
+
+        const eyeSlashIcon = `
+            <svg viewBox="0 0 24 24">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 4.5z"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+        `;
+
+        togglePassword.addEventListener("click", function () {
+            const isHidden = passwordInput.type === "password";
+            passwordInput.type = isHidden ? "text" : "password";
+            this.innerHTML = isHidden ? eyeIcon : eyeSlashIcon;
+        });
+
+        // =======================
+        // FORM SUBMISSION
+        // =======================
+
+        registerForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            result.innerText = "";
+
+            const name = nameInput.value.trim();
+            const email = emailInput.value.trim();
+            const phone = phoneInput.value.trim();
+            const password = passwordInput.value;
+
+            // ---- Name Validation
+            if (!/^[A-Za-z ]+$/.test(name)) {
+                result.innerText = "Name must contain only letters";
+                return;
+            }
+
+            if (name.length < 2) {
+                result.innerText = "Name must be at least 2 characters";
+                return;
+            }
+
+            // ---- Email Validation
+            if (!isValidEmail(email)) {
+                result.innerText = "Email must be a valid gmail.com address";
+                return;
+            }
+
+            // ---- Phone Validation
+            if (!isValidPhone(phone)) {
+                result.innerText = "Enter a valid 10-digit mobile number";
+                return;
+            }
+
+            // ---- Password Validation (PRODUCTION)
+            const passwordError = validatePassword(password);
+            if (passwordError) {
+                result.innerText = passwordError;
+                return;
+            }
+
+            // ---- Prevent double submit
+            registerBtn.disabled = true;
+
+            try {
+                const response = await fetch("/api/auth/register", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        phone,
+                        password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    result.innerText = data.message || "Registration failed";
+                    return;
+                }
+
+                sessionStorage.setItem("email", email);
+                window.location.href = "/verify-otp.html";
+
+            } catch (error) {
+                console.error(error);
+                result.innerText = "Network error. Please try again.";
+            } finally {
+                setTimeout(() => {
+                    registerBtn.disabled = false;
+                }, 1500);
+            }
+        });
+    </script>
+
+</body>
+
+</html>
