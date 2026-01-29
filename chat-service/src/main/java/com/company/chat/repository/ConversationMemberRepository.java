@@ -21,6 +21,10 @@ public interface ConversationMemberRepository
     Optional<ConversationMember> findFirstByConversation_ConversationIdAndUserIdNot(
             Long conversationId, Long userId);
 
+
+    List<ConversationMember> findByConversation_ConversationId(
+            Long conversationId
+    );
     @Query("""
 SELECT COUNT(cm)
 FROM ConversationMember cm

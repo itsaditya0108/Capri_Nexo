@@ -1,6 +1,5 @@
 package com.company.chat.repository;
 
-
 import com.company.chat.entity.Message;
 import com.company.chat.entity.MessageRead;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +12,8 @@ import java.util.List;
 public interface MessageReadRepository extends JpaRepository<MessageRead, Long> {
 
     boolean existsByMessage_MessageIdAndUserId(Long messageId, Long userId);
+
+    boolean existsByMessage_MessageId(Long messageId);
 
     List<MessageRead> findByUserId(Long userId);
 }

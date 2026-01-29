@@ -12,6 +12,11 @@ public class ConversationGroup {
     @Column(name = "conversation_id")
     private Long conversationId;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "conversation_id")
+    private Conversation conversation;
+
     @Column(nullable = false, length = 100)
     private String name;
 
@@ -21,17 +26,11 @@ public class ConversationGroup {
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
-    @Column(
-            name = "created_timestamp",
-            insertable = false,
-            updatable = false
-    )
-    private Instant createdTimestamp;
+    @Column(name = "created_timestamp", nullable = false, updatable = false)
+    private Instant createdTimestamp = Instant.now();
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
-    @JoinColumn(name = "conversation_id")
-    private Conversation conversation;
+
+    public ConversationGroup() {}
 
     // getters/setters
 

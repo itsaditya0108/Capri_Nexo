@@ -17,17 +17,27 @@ public class MessageController {
 
         private final MessageService messageService;
         private final ConversationSseController sseController;
+        private final com.company.chat.client.AuthUserClient authUserClient;
+        private final com.company.chat.repository.MessageReadRepository readRepository;
 
-        public MessageController(MessageService messageService, ConversationSseController sseController) {
+        public MessageController(
+                        MessageService messageService,
+                        ConversationSseController sseController,
+                        com.company.chat.client.AuthUserClient authUserClient,
+                        com.company.chat.repository.MessageReadRepository readRepository) {
                 this.messageService = messageService;
                 this.sseController = sseController;
+                this.authUserClient = authUserClient;
+                this.readRepository = readRepository;
         }
 
+        // ---------------- SEND MESSAGE ----------------
         // ---------------- SEND MESSAGE ----------------
         @PostMapping("/{conversationId}/messages")
         public MessageResponse sendMessage(
                         @PathVariable Long conversationId,
-                        @Valid @RequestBody SendMessageRequest request) {
+                        @Valid @RequestBody SendMessageRequest request,
+                        @RequestHeader(value = "Authorization", required = false) String authHeader) {
                 Long userId = currentUserId();
 
                 Message message = messageService.sendMessage(
@@ -35,29 +45,58 @@ public class MessageController {
                                 userId,
                                 request.getContent());
 
+                String senderName = "User";
+                try {
+                        var names = authUserClient.getUserNamesByIds(java.util.Set.of(userId), authHeader);
+                        senderName = names.getOrDefault(userId, "User");
+                } catch (Exception e) {
+                }
+
                 return new MessageResponse(
                                 message.getMessageId(),
                                 conversationId,
                                 message.getSenderId(),
                                 message.getContent(),
-                                message.getCreatedTimestamp());
+                                message.getCreatedTimestamp(),
+                                false,
+                                senderName);
         }
 
         // ---------------- LOAD RECENT ----------------
         @GetMapping("/{conversationId}/messages")
         public List<MessageResponse> loadMessages(
-                        @PathVariable Long conversationId) {
+                        @PathVariable Long conversationId,
+                        @RequestHeader(value = "Authorization", required = false) String authHeader) {
                 Long userId = currentUserId();
+                List<Message> messages = messageService.loadRecentMessages(conversationId, userId);
 
-                return messageService
-                                .loadRecentMessages(conversationId, userId)
-                                .stream()
-                                .map(m -> new MessageResponse(
-                                                m.getMessageId(),
-                                                conversationId,
-                                                m.getSenderId(),
-                                                m.getContent(),
-                                                m.getCreatedTimestamp()))
+                // Batch fetch
+                java.util.Set<Long> userIds = messages.stream().map(Message::getSenderId)
+                                .collect(java.util.stream.Collectors.toSet());
+                java.util.Map<Long, String> namesMap = new java.util.HashMap<>();
+                try {
+                        namesMap = authUserClient.getUserNamesByIds(userIds, authHeader);
+                } catch (Exception e) {
+                }
+                final java.util.Map<Long, String> finalNames = namesMap;
+
+                return messages.stream()
+                                .map(m -> {
+                                        boolean isRead = false;
+                                        if (m.getSenderId().equals(userId)) {
+                                                isRead = readRepository.existsByMessage_MessageId(m.getMessageId());
+                                        }
+                                        String name = finalNames.getOrDefault(m.getSenderId(),
+                                                        "User " + m.getSenderId());
+                                        return new MessageResponse(
+                                                        m.getMessageId(),
+                                                        conversationId,
+                                                        m.getSenderId(),
+                                                        m.getContent(),
+                                                        m.getCreatedTimestamp(),
+                                                        isRead,
+                                                        name);
+                                })
                                 .toList();
         }
 
@@ -65,18 +104,39 @@ public class MessageController {
         @GetMapping("/{conversationId}/messages/page")
         public List<MessageResponse> loadMessagesPage(
                         @PathVariable Long conversationId,
-                        @RequestParam(required = false) Long beforeMessageId) {
+                        @RequestParam(required = false) Long beforeMessageId,
+                        @RequestHeader(value = "Authorization", required = false) String authHeader) {
                 Long userId = currentUserId();
 
-                return messageService
-                                .loadMessagesPage(conversationId, userId, beforeMessageId)
-                                .stream()
-                                .map(m -> new MessageResponse(
-                                                m.getMessageId(),
-                                                conversationId,
-                                                m.getSenderId(),
-                                                m.getContent(),
-                                                m.getCreatedTimestamp()))
+                List<Message> messages = messageService.loadMessagesPage(conversationId, userId, beforeMessageId);
+
+                // Batch fetch
+                java.util.Set<Long> userIds = messages.stream().map(Message::getSenderId)
+                                .collect(java.util.stream.Collectors.toSet());
+                java.util.Map<Long, String> namesMap = new java.util.HashMap<>();
+                try {
+                        namesMap = authUserClient.getUserNamesByIds(userIds, authHeader);
+                } catch (Exception e) {
+                }
+                final java.util.Map<Long, String> finalNames = namesMap;
+
+                return messages.stream()
+                                .map(m -> {
+                                        boolean isRead = false;
+                                        if (m.getSenderId().equals(userId)) {
+                                                isRead = readRepository.existsByMessage_MessageId(m.getMessageId());
+                                        }
+                                        String name = finalNames.getOrDefault(m.getSenderId(),
+                                                        "User " + m.getSenderId());
+                                        return new MessageResponse(
+                                                        m.getMessageId(),
+                                                        conversationId,
+                                                        m.getSenderId(),
+                                                        m.getContent(),
+                                                        m.getCreatedTimestamp(),
+                                                        isRead,
+                                                        name);
+                                })
                                 .toList();
         }
 
@@ -102,11 +162,19 @@ public class MessageController {
         }
 
         @PostMapping("/{conversationId}/typing")
-        public void typing(@PathVariable Long conversationId) {
+        public void typing(
+                        @PathVariable Long conversationId,
+                        @RequestHeader("Authorization") String authHeader) {
                 Long userId = currentUserId();
 
-                // username ideally comes from JWT or cached service
-                String username = "User " + userId;
+                // Fetch real username
+                String username = "User";
+                try {
+                        var names = authUserClient.getUserNamesByIds(java.util.Set.of(userId), authHeader);
+                        username = names.getOrDefault(userId, "User");
+                } catch (Exception e) {
+                        // fallback
+                }
 
                 sseController.sendTypingEvent(conversationId, userId, username);
         }

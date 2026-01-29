@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/internal/**").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/sse/**").permitAll()
+                        .requestMatchers("/api/conversations/**").authenticated()
                         .anyRequest().authenticated()
                 )
 

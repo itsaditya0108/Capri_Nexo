@@ -71,6 +71,7 @@ LEFT JOIN MessageRead mr ON mr.message = m AND mr.userId = :userId
 WHERE m.conversation.conversationId = :conversationId
 AND mr.id IS NULL
 AND m.senderId <> :userId
+AND m.deleted = false
 """)
     List<Message> findUnreadMessages(
             @Param("conversationId") Long conversationId,

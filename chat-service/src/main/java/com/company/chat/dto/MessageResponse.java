@@ -10,18 +10,49 @@ public class MessageResponse {
     private String content;
     private Instant createdTimestamp;
 
+    private boolean read;
+    private String senderName;
+
     public MessageResponse(
             Long messageId,
             Long conversationId,
             Long senderId,
             String content,
-            Instant createdTimestamp
-    ) {
+            Instant createdTimestamp) {
         this.messageId = messageId;
         this.conversationId = conversationId;
         this.senderId = senderId;
         this.content = content;
         this.createdTimestamp = createdTimestamp;
+        this.read = false;
+        this.senderName = "User " + senderId;
+    }
+
+    public MessageResponse(
+            Long messageId,
+            Long conversationId,
+            Long senderId,
+            String content,
+            Instant createdTimestamp,
+            boolean read) {
+        this(messageId, conversationId, senderId, content, createdTimestamp, read, "User " + senderId);
+    }
+
+    public MessageResponse(
+            Long messageId,
+            Long conversationId,
+            Long senderId,
+            String content,
+            Instant createdTimestamp,
+            boolean read,
+            String senderName) {
+        this.messageId = messageId;
+        this.conversationId = conversationId;
+        this.senderId = senderId;
+        this.content = content;
+        this.createdTimestamp = createdTimestamp;
+        this.read = read;
+        this.senderName = senderName;
     }
 
     public Long getMessageId() {
@@ -43,5 +74,12 @@ public class MessageResponse {
     public Instant getCreatedTimestamp() {
         return createdTimestamp;
     }
-}
 
+    public boolean isRead() {
+        return read;
+    }
+
+    public String getSenderName() {
+        return senderName;
+    }
+}

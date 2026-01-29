@@ -22,8 +22,11 @@ public class ConversationSseController {
     private final JwtUtil jwtUtil;
     private final ConversationMemberRepository memberRepository;
 
-    // conversationId -> emitters
-    private final Map<Long, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    // conversationId -> emitters (for active chat display)
+    private final Map<Long, List<SseEmitter>> conversationEmitters = new ConcurrentHashMap<>();
+
+    // userId -> emitters (for global notifications like inbox updates)
+    private final Map<Long, List<SseEmitter>> userEmitters = new ConcurrentHashMap<>();
 
     public ConversationSseController(
             JwtUtil jwtUtil,
@@ -32,67 +35,94 @@ public class ConversationSseController {
         this.memberRepository = memberRepository;
     }
 
-    // ================= SUBSCRIBE =================
-    @GetMapping(
-            value = "/conversations/{conversationId}",
-            produces = MediaType.TEXT_EVENT_STREAM_VALUE
-    )
-    public SseEmitter subscribe(
+    // ================= SUBSCRIBE TO CONVERSATION =================
+    @GetMapping(value = "/conversations/{conversationId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeToConversation(
             @PathVariable Long conversationId,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
 
         memberRepository
                 .findByConversation_ConversationIdAndUserId(conversationId, userId)
                 .orElseThrow(() -> new RuntimeException("Not a member"));
 
-        // 3️⃣ Create emitter
-        SseEmitter emitter = new SseEmitter(0L); // no timeout
+        SseEmitter emitter = new SseEmitter(0L);
 
-        emitters
+        conversationEmitters
                 .computeIfAbsent(conversationId, id -> new CopyOnWriteArrayList<>())
                 .add(emitter);
 
-        // 4️⃣ Cleanup
-        emitter.onCompletion(() -> emitters.getOrDefault(conversationId, List.of()).remove(emitter));
-        emitter.onTimeout(() -> emitters.getOrDefault(conversationId, List.of()).remove(emitter));
+        emitter.onCompletion(() -> conversationEmitters.getOrDefault(conversationId, List.of()).remove(emitter));
+        emitter.onTimeout(() -> conversationEmitters.getOrDefault(conversationId, List.of()).remove(emitter));
+
+        return emitter;
+    }
+
+    // ================= SUBSCRIBE TO GLOBAL USER NOTIFICATIONS =================
+    @GetMapping(value = "/notifications", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeToNotifications(
+            Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+
+        SseEmitter emitter = new SseEmitter(0L);
+
+        userEmitters
+                .computeIfAbsent(userId, id -> new CopyOnWriteArrayList<>())
+                .add(emitter);
+
+        emitter.onCompletion(() -> userEmitters.getOrDefault(userId, List.of()).remove(emitter));
+        emitter.onTimeout(() -> userEmitters.getOrDefault(userId, List.of()).remove(emitter));
 
         return emitter;
     }
 
     // ================= PUSH EVENT =================
     public void sendMessageEvent(Long conversationId, MessageResponse message) {
-        List<SseEmitter> list = emitters.get(conversationId);
-        if (list == null)
-            return;
-
-        for (SseEmitter emitter : list) {
-            try {
-                emitter.send(
-                        SseEmitter.event()
-                                .name("message")
-                                .data(message));
-            } catch (Exception e) {
-                emitter.complete();
-                list.remove(emitter);
+        // 1. Send to the specific conversation emitters
+        List<SseEmitter> conversationList = conversationEmitters.get(conversationId);
+        if (conversationList != null) {
+            for (SseEmitter emitter : conversationList) {
+                try {
+                    emitter.send(SseEmitter.event().name("message").data(message));
+                } catch (Exception e) {
+                    emitter.complete();
+                    conversationList.remove(emitter);
+                }
             }
         }
+
+        // 2. Send global notification to all members of this conversation
+        // This updates their inbox/unread signs
+        memberRepository.findByConversation_ConversationId(conversationId)
+                .forEach(member -> {
+                    List<SseEmitter> userList = userEmitters.get(member.getUserId());
+                    if (userList != null) {
+                        for (SseEmitter emitter : userList) {
+                            try {
+                                emitter.send(SseEmitter.event().name("inbox_update").data(Map.of(
+                                        "conversationId", conversationId,
+                                        "lastMessage", message.getContent(),
+                                        "senderId", message.getSenderId())));
+                            } catch (Exception e) {
+                                emitter.complete();
+                                userList.remove(emitter);
+                            }
+                        }
+                    }
+                });
     }
 
     public void sendTypingEvent(Long conversationId, Long userId, String username) {
-        List<SseEmitter> list = emitters.get(conversationId);
+        List<SseEmitter> list = conversationEmitters.get(conversationId);
         if (list == null)
             return;
 
         for (SseEmitter emitter : list) {
             try {
-                emitter.send(
-                        SseEmitter.event()
-                                .name("typing")
-                                .data(Map.of(
-                                        "userId", userId,
-                                        "username", username)));
+                emitter.send(SseEmitter.event().name("typing").data(Map.of(
+                        "userId", userId,
+                        "username", username,
+                        "conversationId", conversationId)));
             } catch (Exception e) {
                 emitter.complete();
                 list.remove(emitter);
@@ -100,26 +130,34 @@ public class ConversationSseController {
         }
     }
 
-    public void sendReadReceipt(
-            Long conversationId,
-            Long messageId,
-            Long readerUserId) {
-        List<SseEmitter> list = emitters.get(conversationId);
-        if (list == null)
-            return;
+    public void sendReadReceipt(Long conversationId, Long messageId, Long readerUserId) {
+        // Send to conversation list
+        List<SseEmitter> conversationList = conversationEmitters.get(conversationId);
+        if (conversationList != null) {
+            for (SseEmitter emitter : conversationList) {
+                try {
+                    emitter.send(SseEmitter.event().name("read").data(Map.of(
+                            "messageId", messageId,
+                            "readerUserId", readerUserId)));
+                } catch (Exception e) {
+                    emitter.complete();
+                    conversationList.remove(emitter);
+                }
+            }
+        }
 
-        for (SseEmitter emitter : list) {
-            try {
-                emitter.send(
-                        SseEmitter.event()
-                                .name("read")
-                                .data(
-                                        Map.of(
-                                                "messageId", messageId,
-                                                "readerUserId", readerUserId)));
-            } catch (Exception e) {
-                emitter.complete();
-                list.remove(emitter);
+        // Also send notify user list for inbox unread badge updates
+        List<SseEmitter> userList = userEmitters.get(readerUserId);
+        if (userList != null) {
+            for (SseEmitter emitter : userList) {
+                try {
+                    emitter.send(SseEmitter.event().name("read_update").data(Map.of(
+                            "conversationId", conversationId,
+                            "messageId", messageId)));
+                } catch (Exception e) {
+                    emitter.complete();
+                    userList.remove(emitter);
+                }
             }
         }
     }

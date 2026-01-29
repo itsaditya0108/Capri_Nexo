@@ -2,7 +2,6 @@ package com.company.chat.security;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -42,6 +41,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (token != null) {
                 Claims claims = jwtUtil.parseToken(token);
 
+                // Check Revocation (New)
+                if (!isSessionValid(token)) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+
                 // userId is stored in "sub"
                 Long userId = Long.valueOf(claims.getSubject());
 
@@ -53,23 +58,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
                 System.out.println("==== JWT FILTER ====");
-                System.out.println("URI = " + request.getRequestURI());
                 System.out.println("User ID = " + userId);
             }
 
             filterChain.doFilter(request, response);
 
         } catch (Exception ex) {
-            // Clear context to avoid leakage
             SecurityContextHolder.clearContext();
-
-            // Log the actual error for debugging
             System.err.println("==== JWT AUTHENTICATION FAILED ====");
-            System.err.println("Error Type: " + ex.getClass().getName());
-            System.err.println("Error Message: " + ex.getMessage());
-            ex.printStackTrace();
-
-            // Invalid JWT → 401, not 500
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -79,8 +75,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     """);
         }
     }
+
+    private static final java.util.Map<String, Long> VALID_SESSION_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MS = 30000;
+
+    private boolean isSessionValid(String token) {
+        long now = System.currentTimeMillis();
+        if (VALID_SESSION_CACHE.containsKey(token)) {
+            if (now - VALID_SESSION_CACHE.get(token) < CACHE_TTL_MS) {
+                return true;
+            }
+        }
+
+        try {
+            java.net.URL url = new java.net.URL("http://localhost:8080/api/auth/validate-session");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
+
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                VALID_SESSION_CACHE.put(token, now);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            System.err.println("Session validation failed (Auth service unreachable): " + e.getMessage());
+            return false;
+        }
+    }
 }
-
-
-
-
