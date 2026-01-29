@@ -9,8 +9,7 @@ import java.util.Set;
 
 public final class ImageValidationUtil {
 
-    private static final Set<String> ALLOWED_EXTENSIONS =
-            Set.of(".jpg", ".jpeg", ".png", ".webp");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".webp", ".gif");
 
     private ImageValidationUtil() {
         // utility class
@@ -22,8 +21,7 @@ public final class ImageValidationUtil {
      */
     public static BufferedImage validateAndRead(
             MultipartFile file,
-            long maxUploadSize
-    ) throws IOException {
+            long maxUploadSize) throws IOException {
 
         if (file == null || file.isEmpty()) {
             throw new RuntimeException("Empty file");

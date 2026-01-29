@@ -11,67 +11,87 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // -------------------------
-    // Image not found / access denied
-    // -------------------------
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiErrorResponse> handleRuntime(RuntimeException ex) {
+        // -------------------------
+        // Image not found / access denied
+        // -------------------------
+        // -------------------------
+        // Image not found / access denied
+        // -------------------------
+        @ExceptionHandler(ResourceNotFoundException.class)
+        public ResponseEntity<ApiErrorResponse> handleNotFound(ResourceNotFoundException ex) {
 
-        ApiErrorResponse error = new ApiErrorResponse(
-                "REQUEST_FAILED",
-                ex.getMessage()
-        );
+                ApiErrorResponse error = new ApiErrorResponse(
+                                "NOT_FOUND",
+                                ex.getMessage());
 
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(error);
-    }
+                return ResponseEntity
+                                .status(HttpStatus.NOT_FOUND)
+                                .body(error);
+        }
 
-    // -------------------------
-    // File too large (Spring multipart)
-    // -------------------------
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiErrorResponse> handleMaxSize(MaxUploadSizeExceededException ex) {
+        @ExceptionHandler(RuntimeException.class)
+        public ResponseEntity<ApiErrorResponse> handleRuntime(RuntimeException ex) {
 
-        ApiErrorResponse error = new ApiErrorResponse(
-                "FILE_TOO_LARGE",
-                "Uploaded file exceeds allowed size"
-        );
+                if (ex.getMessage().contains("not found")) {
+                        ApiErrorResponse error = new ApiErrorResponse(
+                                        "NOT_FOUND",
+                                        ex.getMessage());
+                        return ResponseEntity
+                                        .status(HttpStatus.NOT_FOUND)
+                                        .body(error);
+                }
 
-        return ResponseEntity
-                .status(HttpStatus.PAYLOAD_TOO_LARGE)
-                .body(error);
-    }
+                ApiErrorResponse error = new ApiErrorResponse(
+                                "REQUEST_FAILED",
+                                ex.getMessage());
 
-    // -------------------------
-    // Validation errors (future-proof)
-    // -------------------------
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+                return ResponseEntity
+                                .status(HttpStatus.BAD_REQUEST)
+                                .body(error);
+        }
 
-        ApiErrorResponse error = new ApiErrorResponse(
-                "VALIDATION_ERROR",
-                "Invalid request data"
-        );
+        // -------------------------
+        // File too large (Spring multipart)
+        // -------------------------
+        @ExceptionHandler(MaxUploadSizeExceededException.class)
+        public ResponseEntity<ApiErrorResponse> handleMaxSize(MaxUploadSizeExceededException ex) {
 
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(error);
-    }
+                ApiErrorResponse error = new ApiErrorResponse(
+                                "FILE_TOO_LARGE",
+                                "Uploaded file exceeds allowed size");
 
-    // -------------------------
-    // Fallback (safety net)
-    // -------------------------
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex) {
+                return ResponseEntity
+                                .status(HttpStatus.PAYLOAD_TOO_LARGE)
+                                .body(error);
+        }
 
-        ApiErrorResponse error = new ApiErrorResponse(
-                "INTERNAL_ERROR",
-                "Something went wrong"
-        );
+        // -------------------------
+        // Validation errors (future-proof)
+        // -------------------------
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
 
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(error);
-    }
+                ApiErrorResponse error = new ApiErrorResponse(
+                                "VALIDATION_ERROR",
+                                "Invalid request data");
+
+                return ResponseEntity
+                                .status(HttpStatus.BAD_REQUEST)
+                                .body(error);
+        }
+
+        // -------------------------
+        // Fallback (safety net)
+        // -------------------------
+        @ExceptionHandler(Exception.class)
+        public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex) {
+
+                ApiErrorResponse error = new ApiErrorResponse(
+                                "INTERNAL_ERROR",
+                                "Something went wrong");
+
+                return ResponseEntity
+                                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(error);
+        }
 }

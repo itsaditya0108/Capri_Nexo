@@ -4,14 +4,11 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "images",
-        indexes = {
-                @Index(name = "idx_images_user_created", columnList = "user_id, created_timestamp"),
-                @Index(name = "idx_images_user_id", columnList = "user_id"),
-                @Index(name = "idx_images_deleted", columnList = "is_deleted, deleted_timestamp")
-        }
-)
+@Table(name = "images", indexes = {
+        @Index(name = "idx_images_user_created", columnList = "user_id, created_timestamp"),
+        @Index(name = "idx_images_user_id", columnList = "user_id"),
+        @Index(name = "idx_images_deleted", columnList = "is_deleted, deleted_timestamp")
+})
 public class Image {
 
     @Id
@@ -45,6 +42,10 @@ public class Image {
     @Column(name = "height")
     private Integer height;
 
+    // 🔥 NEW: THUMBNAIL PATH
+    @Column(name = "thumbnail_path", nullable = false)
+    private String thumbnailPath;
+
     // Soft delete
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
@@ -52,7 +53,6 @@ public class Image {
     // Audit
     @Column(name = "created_timestamp", nullable = false, updatable = false)
     private LocalDateTime createdTimestamp;
-
 
     @Column(name = "updated_timestamp", nullable = false)
     private LocalDateTime updatedTimestamp;
@@ -144,6 +144,14 @@ public class Image {
         this.height = height;
     }
 
+    public String getThumbnailPath() {
+        return thumbnailPath;
+    }
+
+    public void setThumbnailPath(String thumbnailPath) {
+        this.thumbnailPath = thumbnailPath;
+    }
+
     public Boolean getIsDeleted() {
         return isDeleted;
     }
@@ -164,7 +172,7 @@ public class Image {
         return deletedTimestamp;
     }
 
-    public void setDeletedAt(LocalDateTime deletedTimestamp) {
+    public void setDeletedTimestamp(LocalDateTime deletedTimestamp) {
         this.deletedTimestamp = deletedTimestamp;
     }
 }

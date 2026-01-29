@@ -21,36 +21,110 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain
-    ) throws ServletException, IOException {
+            FilterChain filterChain) throws ServletException, IOException {
 
+        // 0️⃣ Allow OPTIONS (CORS preflight) requests
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // 1️⃣ Read Authorization header
         String authHeader = request.getHeader("Authorization");
+
+        // 1.1️⃣ Check for token in Query Param (for <img> tags)
+        if (authHeader == null && request.getParameter("token") != null) {
+            authHeader = "Bearer " + request.getParameter("token");
+        }
+
+        String uri = request.getRequestURI();
+
+        // DEV-ONLY: Allow image download without JWT (Fallback)
+        if (uri.startsWith("/api/images/")
+                && uri.endsWith("/download")) {
+            // Only skip if no token provided at all
+            if (authHeader == null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
+        // 2️⃣ Extract token
         String token = authHeader.substring(7);
 
         try {
+            // 3️⃣ Validate token (signature + expiry)
             Claims claims = jwtUtil.validateAndGetClaims(token);
 
-            Long userId = claims.get("userId", Long.class);
-
-            if (userId == null) {
+            // 4️⃣ Check Revocation (New)
+            if (!isSessionValid(token)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
 
-            // Mobile-friendly: store userId for downstream layers
+            // 5️⃣ Extract userId from standard JWT "sub"
+            String subject = claims.getSubject(); // sub
+            if (subject == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            Long userId;
+            try {
+                userId = Long.parseLong(subject);
+            } catch (NumberFormatException e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            // 6️⃣ Attach userId to request for downstream layers
             request.setAttribute("userId", userId);
 
-        } catch (Exception e) {
+            // 7️⃣ Continue request
+            filterChain.doFilter(request, response);
+
+        } catch (Exception ex) {
+            // Any JWT validation failure
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
+        }
+    }
+
+    private static final java.util.Map<String, Long> VALID_SESSION_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long CACHE_TTL_MS = 30000; // 30 seconds
+
+    private boolean isSessionValid(String token) {
+        long now = System.currentTimeMillis();
+        if (VALID_SESSION_CACHE.containsKey(token)) {
+            if (now - VALID_SESSION_CACHE.get(token) < CACHE_TTL_MS) {
+                return true;
+            }
         }
 
-        filterChain.doFilter(request, response);
+        try {
+            java.net.URL url = new java.net.URL("http://localhost:8080/api/auth/validate-session");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
+
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                VALID_SESSION_CACHE.put(token, now);
+                return true;
+            }
+            return false;
+        } catch (Exception e) {
+            // If authapp is down, fail-safe or fail-fast?
+            // To be secure, we should fail-fast (return false)
+            System.err.println("Session validation failed (Auth service unreachable): " + e.getMessage());
+            return false;
+        }
     }
 }

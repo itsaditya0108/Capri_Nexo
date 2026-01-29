@@ -5,10 +5,7 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "profile_pictures",
-        uniqueConstraints = @UniqueConstraint(columnNames = "user_id")
-)
+@Table(name = "profile_pictures")
 public class ProfilePicture {
 
     @Id
@@ -39,6 +36,9 @@ public class ProfilePicture {
     @Column(nullable = false)
     private long fileSize;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = true;
+
     @Column(nullable = false)
     private LocalDateTime createdTimestamp;
 
@@ -57,7 +57,6 @@ public class ProfilePicture {
     }
 
     // getters & setters
-
 
     public Long getId() {
         return id;
@@ -129,6 +128,14 @@ public class ProfilePicture {
 
     public void setFileSize(long fileSize) {
         this.fileSize = fileSize;
+    }
+
+    public boolean isActive() {
+        return isActive;
+    }
+
+    public void setActive(boolean active) {
+        isActive = active;
     }
 
     public LocalDateTime getCreatedTimestamp() {

@@ -10,6 +10,7 @@ public class ImageResponseDto {
     private long fileSize;
     private LocalDateTime createdAt;
     private String imageUrl;
+    private String thumbnailUrl;  // 🔥 new
 
     // getters & setters
 
@@ -59,5 +60,13 @@ public class ImageResponseDto {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 }

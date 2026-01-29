@@ -26,8 +26,7 @@ public class ImageCleanupServiceImpl implements ImageCleanupService {
             ImageRepository imageRepository,
             @Value("${image.storage.base-path}") String storageBasePath,
             @Value("${image.cleanup.retention-days}") int retentionDays,
-            @Value("${image.cleanup.batch-size}") int batchSize
-    ) {
+            @Value("${image.cleanup.batch-size}") int batchSize) {
         this.imageRepository = imageRepository;
         this.storageBasePath = storageBasePath;
         this.retentionDays = retentionDays;
@@ -38,28 +37,28 @@ public class ImageCleanupServiceImpl implements ImageCleanupService {
     @Transactional
     public void cleanupDeletedImages() {
 
-        LocalDateTime cutoff =
-                LocalDateTime.now().minusDays(retentionDays);
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
 
-        List<Image> images =
-                imageRepository.findByIsDeletedTrueAndDeletedTimestampBefore(
-                        cutoff,
-                        PageRequest.of(0, batchSize)
-                );
+        List<Image> images = imageRepository.findByIsDeletedTrueAndDeletedTimestampBefore(
+                cutoff,
+                PageRequest.of(0, batchSize));
 
         for (Image image : images) {
-            deleteFileSafely(image);
+            deleteFileSafely(image.getStoragePath());
+            deleteFileSafely(image.getThumbnailPath());
             imageRepository.delete(image); // hard delete DB row
         }
     }
 
-    private void deleteFileSafely(Image image) {
+    private void deleteFileSafely(String relativePath) {
+        if (relativePath == null)
+            return;
         try {
-            Path path = Paths.get(storageBasePath, image.getStoragePath());
+            Path path = Paths.get(storageBasePath, relativePath);
             Files.deleteIfExists(path);
         } catch (Exception ex) {
             // LOG ONLY — never crash cleanup job
-            System.err.println("Failed to delete file: " + image.getStoragePath());
+            System.err.println("Failed to delete file: " + relativePath);
         }
     }
 }
