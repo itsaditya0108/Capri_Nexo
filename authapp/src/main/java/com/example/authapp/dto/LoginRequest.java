@@ -11,9 +11,18 @@ public class LoginRequest {
 
     @NotBlank(message = "PASSWORD_REQUIRED")
     private String password;
+    private boolean logoutOtherDevices;
     private DeviceContextDto deviceContext; // OPTIONAL
 
     // getters & setters
+    public boolean isLogoutOtherDevices() {
+        return logoutOtherDevices;
+    }
+
+    public void setLogoutOtherDevices(boolean logoutOtherDevices) {
+        this.logoutOtherDevices = logoutOtherDevices;
+    }
+
     public String getEmail() {
         return email;
     }

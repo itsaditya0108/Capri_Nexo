@@ -43,11 +43,22 @@ public class LoginHistory {
     @Column(name = "failure_reason", length = 50)
     private String failureReason;
 
-    @Column(
-            name = "created_timestamp",
-            insertable = false,
-            updatable = false
-    )
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "accuracy")
+    private Integer accuracy;
+
+    @Column(name = "user_name")
+    private String userName;
+
+    @Column(name = "device_model")
+    private String deviceModel;
+
+    @Column(name = "created_timestamp", insertable = false, updatable = false)
     private LocalDateTime createdTimestamp;
 
     /* ---------- Constructors ---------- */
@@ -143,6 +154,46 @@ public class LoginHistory {
 
     public void setFailureReason(String failureReason) {
         this.failureReason = failureReason;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Integer getAccuracy() {
+        return accuracy;
+    }
+
+    public void setAccuracy(Integer accuracy) {
+        this.accuracy = accuracy;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public String getDeviceModel() {
+        return deviceModel;
+    }
+
+    public void setDeviceModel(String deviceModel) {
+        this.deviceModel = deviceModel;
     }
 
     public LocalDateTime getCreatedTimestamp() {

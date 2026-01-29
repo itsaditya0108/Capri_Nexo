@@ -5,12 +5,9 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "user_devices",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"user_id", "device_id"})
-        }
-)
+@Table(name = "user_devices", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "user_id", "device_id" })
+})
 public class UserDevice {
 
     @Id
@@ -39,13 +36,19 @@ public class UserDevice {
     private String deviceLanguage;
     private String timezone;
 
+    private Double latitude;
+    private Double longitude;
+    private Integer accuracy;
+
+    @Column(name = "user_name")
+    private String userName;
+
     private Boolean deviceTrusted = false;
 
     private LocalDateTime firstInstallTimestamp;
     private LocalDateTime lastLoginTimestamp;
 
     // getters & setters
-
 
     public String getOsVersion() {
         return osVersion;
@@ -135,10 +138,41 @@ public class UserDevice {
         this.timezone = timezone;
     }
 
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Integer getAccuracy() {
+        return accuracy;
+    }
+
+    public void setAccuracy(Integer accuracy) {
+        this.accuracy = accuracy;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
     public boolean isDeviceTrusted() {
         return Boolean.TRUE.equals(this.deviceTrusted);
     }
-
 
     public void setDeviceTrusted(Boolean deviceTrusted) {
         this.deviceTrusted = deviceTrusted;

@@ -28,6 +28,16 @@ public class UserSession {
     private String country;
     private String city;
 
+    private Double latitude;
+    private Double longitude;
+    private Integer accuracy;
+
+    @Column(name = "user_name")
+    private String userName;
+
+    @Column(name = "device_model")
+    private String deviceModel;
+
     private LocalDateTime expiresTimestamp;
 
     private Boolean isRevoked = false;
@@ -36,9 +46,7 @@ public class UserSession {
     @Column(name = "created_timestamp", updatable = false)
     private LocalDateTime createdTimestamp;
 
-
     // getters & setters
-
 
     public Long getSessionId() {
         return sessionId;
@@ -96,6 +104,46 @@ public class UserSession {
         this.city = city;
     }
 
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Integer getAccuracy() {
+        return accuracy;
+    }
+
+    public void setAccuracy(Integer accuracy) {
+        this.accuracy = accuracy;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public String getDeviceModel() {
+        return deviceModel;
+    }
+
+    public void setDeviceModel(String deviceModel) {
+        this.deviceModel = deviceModel;
+    }
+
     public LocalDateTime getExpiresTimestamp() {
         return expiresTimestamp;
     }
@@ -103,7 +151,6 @@ public class UserSession {
     public void setExpiresTimestamp(LocalDateTime expiresTimestamp) {
         this.expiresTimestamp = expiresTimestamp;
     }
-
 
     public Boolean isRevoked() {
         return isRevoked;
@@ -116,6 +163,5 @@ public class UserSession {
     public LocalDateTime getCreatedTimestamp() {
         return createdTimestamp;
     }
-
 
 }

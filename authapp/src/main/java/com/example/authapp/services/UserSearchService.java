@@ -22,7 +22,7 @@ public class UserSearchService {
         if (query == null)
             return List.of();
 
-        String q = query.trim().toLowerCase(); // 🔥 normalize FIRST
+        String q = query.trim().toLowerCase();
 
         if (q.length() < 2)
             return List.of();
@@ -34,7 +34,8 @@ public class UserSearchService {
                 .filter(u -> !u.getId().equals(selfUserId))
                 .map(u -> new UserSearchResponse(
                         u.getId(),
-                        u.getName()))
+                        u.getName(),
+                        u.getEmail()))
                 .toList();
     }
 
@@ -46,7 +47,8 @@ public class UserSearchService {
                 .stream()
                 .map(u -> new UserSearchResponse(
                         u.getId(),
-                        u.getName()))
+                        u.getName(),
+                        u.getEmail()))
                 .toList();
     }
 

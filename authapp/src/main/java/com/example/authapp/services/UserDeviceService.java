@@ -38,6 +38,15 @@ public class UserDeviceService {
         device.setOsVersion(deviceContext.getOsVersion());
         device.setAppVersion(deviceContext.getAppVersion());
         device.setLastLoginTimestamp(LocalDateTime.now());
+        device.setUserName(user.getName());
+        device.setManufacturer(deviceContext.getManufacturer());
+        device.setDeviceModel(deviceContext.getDeviceModel());
+
+        if (deviceContext.getLocation() != null) {
+            device.setLatitude(deviceContext.getLocation().getLatitude());
+            device.setLongitude(deviceContext.getLocation().getLongitude());
+            device.setAccuracy(deviceContext.getLocation().getAccuracy());
+        }
 
         return userDeviceRepository.save(device);
     }

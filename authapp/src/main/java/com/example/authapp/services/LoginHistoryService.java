@@ -31,6 +31,7 @@ public class LoginHistoryService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordLoginAttempt(
             Long userId,
+            String userName,
             boolean success,
             String failureReason,
             HttpServletRequest request,
@@ -39,6 +40,7 @@ public class LoginHistoryService {
             LoginHistory history = new LoginHistory();
 
             history.setUserId(userId);
+            history.setUserName(userName);
             history.setSuccess(success);
             history.setFailureReason(failureReason);
 
@@ -55,7 +57,24 @@ public class LoginHistoryService {
             history.setOs(parsed.getOs());
             history.setDeviceType(parsed.getDeviceType());
 
-            // -------- LOCATION (IP-based) --------
+            // -------- DEVICE CONTEXT (Explicit from Mobile/Client) --------
+            if (deviceContext != null) {
+                if (deviceContext.getDeviceType() != null)
+                    history.setDeviceType(deviceContext.getDeviceType());
+                if (deviceContext.getOs() != null)
+                    history.setOs(deviceContext.getOs());
+
+                if (deviceContext.getLocation() != null) {
+                    history.setLatitude(deviceContext.getLocation().getLatitude());
+                    history.setLongitude(deviceContext.getLocation().getLongitude());
+                    history.setAccuracy(deviceContext.getLocation().getAccuracy());
+                }
+                if (deviceContext.getDeviceModel() != null) {
+                    history.setDeviceModel(deviceContext.getDeviceModel());
+                }
+            }
+
+            // -------- LOCATION (IP-based fallback) --------
             IpLocationResponse location = ipLocationService.lookup(ip);
             if (location != null && "success".equalsIgnoreCase(location.getStatus())) {
                 history.setCountry(location.getCountry());

@@ -10,23 +10,20 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface OtpVerificationRepository
-        extends JpaRepository<OtpVerification, Long> {
+                extends JpaRepository<OtpVerification, Long> {
 
-    Optional<OtpVerification>
-    findTopByTargetAndOtpTypeAndVerifiedFalseOrderByCreatedAtDesc(
-            String target,
-            OtpVerification.OtpType otpType
-    );
+        Optional<OtpVerification> findTopByTargetAndOtpTypeAndVerifiedFalseOrderByOtpVerificationIdDesc(
+                        String target,
+                        OtpVerification.OtpType otpType);
 
-    @Modifying
-    @Query("""
-        UPDATE OtpVerification o
-        SET o.verified = true
-        WHERE o.user.id = :userId
-          AND o.otpType = :otpType
-    """)
-    void invalidateOldOtps(
-            @Param("userId") Long userId,
-            @Param("otpType") OtpVerification.OtpType otpType
-    );
+        @Modifying
+        @Query("""
+                            UPDATE OtpVerification o
+                            SET o.verified = true
+                            WHERE o.user.id = :userId
+                              AND o.otpType = :otpType
+                        """)
+        void invalidateOldOtps(
+                        @Param("userId") Long userId,
+                        @Param("otpType") OtpVerification.OtpType otpType);
 }

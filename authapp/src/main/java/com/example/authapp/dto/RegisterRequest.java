@@ -1,4 +1,5 @@
 package com.example.authapp.dto;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -7,37 +8,25 @@ import jakarta.validation.constraints.Size;
 public class RegisterRequest {
 
     @NotBlank(message = "NAME_REQUIRED")
-    @Pattern(
-            regexp = "^[A-Za-z ]+$",
-            message = "NAME_INVALID"
-    )
+    @Size(min = 2, max = 50, message = "NAME_LENGTH_INVALID")
+    @Pattern(regexp = "^[A-Za-z ]+$", message = "NAME_INVALID")
     private String name;
 
     @NotBlank(message = "EMAIL_REQUIRED")
     @Email(message = "EMAIL_INVALID")
-    @Pattern(
-            regexp = "^[A-Za-z0-9._%+-]+@gmail\\.com$",
-            message = "EMAIL_MUST_BE_GMAIL"
-    )
+    @Pattern(regexp = "^[A-Za-z0-9._%+-]+@gmail\\.com$", message = "EMAIL_MUST_BE_GMAIL")
     private String email;
 
     @NotBlank(message = "PHONE_REQUIRED")
-    @Pattern(
-            regexp = "^[6-9][0-9]{9}$",
-            message = "PHONE_INVALID"
-    )
+    @Pattern(regexp = "^[6-9][0-9]{9}$", message = "PHONE_INVALID")
     private String phone;
 
     @NotBlank(message = "PASSWORD_REQUIRED")
     @Size(min = 8, max = 72, message = "PASSWORD_LENGTH_INVALID")
-    @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).+$",
-            message = "PASSWORD_WEAK"
-    )
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).+$", message = "PASSWORD_WEAK")
     private String password;
 
     private DeviceContextDto deviceContext;
-
 
     // getters & setters
 

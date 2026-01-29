@@ -29,18 +29,28 @@ public class SecurityConfig {
 
                 http
                                 .csrf(csrf -> csrf.disable())
+                                .cors(cors -> cors.configurationSource(request -> {
+                                        org.springframework.web.cors.CorsConfiguration config = new org.springframework.web.cors.CorsConfiguration();
+                                        config.setAllowedOriginPatterns(java.util.List.of("*"));
+                                        config.setAllowedMethods(
+                                                        java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                                        config.setAllowedHeaders(java.util.List.of("*"));
+                                        config.setAllowCredentials(true);
+                                        return config;
+                                }))
                                 .exceptionHandling(e -> e.authenticationEntryPoint(entryPoint))
                                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                        .authorizeHttpRequests(auth -> auth
-                                .requestMatchers("/api/auth/**").permitAll()
-                                .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/images/**").permitAll()
-                                .anyRequest().authenticated()
-                        )
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/api/auth/validate-session").authenticated()
+                                                .requestMatchers("/api/auth/**").permitAll()
+                                                .requestMatchers("/internal/users/by-ids").permitAll() // Internal
+                                                                                                       // service call
+                                                .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/images/**",
+                                                                "/favicon.ico", "/error")
+                                                .permitAll()
+                                                .anyRequest().authenticated())
 
-                        .addFilterBefore(
-                                                new JwtAuthenticationFilter(jwtService, userRepository,
-                                                                userSessionRepository),
-                                                UsernamePasswordAuthenticationFilter.class);
+                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
         }

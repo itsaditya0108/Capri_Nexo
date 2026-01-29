@@ -100,6 +100,15 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
+        // Record device if provided
+        if (request.getDeviceContext() != null) {
+            UserDevice device = userDeviceService.saveOrUpdateUserDevice(savedUser, request.getDeviceContext());
+            if (device != null) {
+                device.setDeviceTrusted(true); // Trust the registration device
+                userDeviceRepository.save(device);
+            }
+        }
+
         // Send email OTP
         String otp = otpService.generateOtp();
         OtpVerification entity = new OtpVerification();
@@ -107,7 +116,7 @@ public class UserService {
         entity.setTarget(savedUser.getEmail());
         entity.setOtpCode(otp);
         entity.setOtpType(OtpVerification.OtpType.EMAIL_VERIFICATION);
-        entity.setExpiresAt(LocalDateTime.now().plusMinutes(2));
+        entity.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         otpRepository.save(entity);
         emailService.sendOtpEmail(savedUser.getEmail(), otp);
@@ -118,7 +127,6 @@ public class UserService {
     /* ================= LOGIN ================= */
     @Transactional
     public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
-        String ip = IpUtil.getClientIp(httpRequest);
         DeviceContextDto deviceContext = request.getDeviceContext();
 
         User user = userRepository.findByEmail(request.getEmail())
@@ -144,6 +152,7 @@ public class UserService {
             // Record history (REQUIRES_NEW)
             loginHistoryService.recordLoginAttempt(
                     user.getId(),
+                    user.getName(),
                     false,
                     "INVALID_CREDENTIALS",
                     httpRequest,
@@ -153,19 +162,19 @@ public class UserService {
         }
         UserDevice device = userDeviceService.saveOrUpdateUserDevice(user, deviceContext);
 
-        // FIRST DEVICE EVER → TRUST IT
-        if (device != null && userHasNoTrustedDevices(user)) {
-            device.setDeviceTrusted(true);
-            userDeviceRepository.save(device);
+        // DEVICE VERIFICATION LOGIC
+        if (device != null) {
+            // First device ever → auto-trust
+            if (userHasNoTrustedDevices(user)) {
+                device.setDeviceTrusted(true);
+                userDeviceRepository.save(device);
+            }
+            // Existing but untrusted device → requires verification
+            else if (!device.isDeviceTrusted()) {
+                otpService.sendNewDeviceOtp(user, device);
+                throw new ApiException("NEW_DEVICE_VERIFICATION_REQUIRED");
+            }
         }
-
-        // NEW OR UNTRUSTED DEVICE → OTP REQUIRED
-        if (device != null && userHasNoTrustedDevices(user)) {
-            device.setDeviceTrusted(true);
-            userDeviceService.saveOrUpdateUserDevice(user, deviceContext);
-        }
-
-        userSessionRepository.revokeAllSessions(user.getId());
 
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
@@ -173,13 +182,16 @@ public class UserService {
 
         SessionCreationResult sessionResult = null;
         if (device != null) {
-            sessionResult = createUserSession(user, device, httpRequest);
+            sessionResult = createUserSession(user, device, httpRequest, deviceContext);
+            if (request.isLogoutOtherDevices()) {
+                userSessionRepository.revokeAllOtherSessions(user.getId(), sessionResult.getSession().getSessionId());
+            }
         }
 
         String accessToken = jwtService.generateAccessToken(user,
                 sessionResult != null ? sessionResult.getSession().getSessionId() : null);
 
-        loginHistoryService.recordLoginAttempt(user.getId(), true, null, httpRequest, deviceContext);
+        loginHistoryService.recordLoginAttempt(user.getId(), user.getName(), true, null, httpRequest, deviceContext);
 
         return new LoginResponse(
                 accessToken,
@@ -194,7 +206,8 @@ public class UserService {
     }
 
     /* ================= SESSION ================= */
-    private SessionCreationResult createUserSession(User user, UserDevice device, HttpServletRequest request) {
+    private SessionCreationResult createUserSession(User user, UserDevice device, HttpServletRequest request,
+            DeviceContextDto deviceContext) {
         String rawToken = UUID.randomUUID().toString();
         String ip = IpUtil.getClientIp(request);
 
@@ -206,7 +219,19 @@ public class UserService {
         session.setExpiresTimestamp(LocalDateTime.now().plusDays(30));
         session.setRevoked(false);
 
-        // Fetch location
+        // Store coordinates if provided
+        if (deviceContext != null) {
+            session.setUserName(user.getName());
+            session.setDeviceModel(deviceContext.getDeviceModel());
+
+            if (deviceContext.getLocation() != null) {
+                session.setLatitude(deviceContext.getLocation().getLatitude());
+                session.setLongitude(deviceContext.getLocation().getLongitude());
+                session.setAccuracy(deviceContext.getLocation().getAccuracy());
+            }
+        }
+
+        // Fetch location details from IP
         try {
             IpLocationResponse location = ipLocationService.lookup(ip);
             if (location != null && "success".equalsIgnoreCase(location.getStatus())) {
@@ -307,7 +332,7 @@ public class UserService {
         entity.setTarget(email);
         entity.setOtpCode(otp);
         entity.setOtpType(OtpVerification.OtpType.PASSWORD_RESET);
-        entity.setExpiresAt(LocalDateTime.now().plusMinutes(2));
+        entity.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         otpRepository.save(entity);
         emailService.sendOtpEmail(email, otp);
@@ -316,7 +341,7 @@ public class UserService {
     @Transactional
     public String verifyPasswordResetOtp(String email, String otpInput) {
         OtpVerification otp = otpRepository
-                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByCreatedAtDesc(
+                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByOtpVerificationIdDesc(
                         email, OtpVerification.OtpType.PASSWORD_RESET)
                 .orElseThrow(() -> new ApiException("INVALID_OTP"));
 
@@ -368,7 +393,7 @@ public class UserService {
         entity.setTarget(normalizedPhone);
         entity.setOtpCode(otp);
         entity.setOtpType(OtpVerification.OtpType.PHONE_VERIFICATION);
-        entity.setExpiresAt(LocalDateTime.now().plusMinutes(2));
+        entity.setExpiresAt(LocalDateTime.now().plusMinutes(10));
 
         otpRepository.save(entity);
         smsService.sendOtp(normalizedPhone, otp);
@@ -384,7 +409,7 @@ public class UserService {
 
         // 1️⃣ Validate OTP (USING EXISTING METHOD)
         OtpVerification otp = otpRepository
-                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByCreatedAtDesc(
+                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByOtpVerificationIdDesc(
                         user.getEmail(),
                         OtpVerification.OtpType.NEW_DEVICE_VERIFICATION)
                 .orElseThrow(() -> new ApiException("INVALID_OTP"));
@@ -401,13 +426,13 @@ public class UserService {
         device.setDeviceTrusted(true);
         userDeviceRepository.save(device);
 
-        // 3️⃣ Optional logout others
-        if (request.isLogoutOtherDevices()) {
-            userSessionRepository.revokeAllSessions(user.getId());
-        }
+        // 4️⃣ Create session + tokens (DO THIS FIRST)
+        SessionCreationResult sessionResult = createUserSession(user, device, httpRequest, request.getDeviceContext());
 
-        // 4️⃣ Create session + tokens
-        SessionCreationResult sessionResult = createUserSession(user, device, httpRequest);
+        // 5️⃣ Revoke others (EXCEPT THIS NEW ONE)
+        if (request.isLogoutOtherDevices()) {
+            userSessionRepository.revokeAllOtherSessions(user.getId(), sessionResult.getSession().getSessionId());
+        }
 
         String accessToken = jwtService.generateAccessToken(user, sessionResult.getSession().getSessionId());
 
@@ -428,7 +453,7 @@ public class UserService {
         String normalizedPhone = PhoneUtil.normalizeIndianPhone(phone);
 
         OtpVerification otp = otpRepository
-                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByCreatedAtDesc(
+                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByOtpVerificationIdDesc(
                         normalizedPhone, OtpVerification.OtpType.PHONE_VERIFICATION)
                 .orElseThrow(() -> new ApiException("INVALID_OTP"));
 
@@ -458,7 +483,7 @@ public class UserService {
         otpEntity.setTarget(email);
         otpEntity.setOtpCode(otp);
         otpEntity.setOtpType(OtpVerification.OtpType.EMAIL_VERIFICATION);
-        otpEntity.setExpiresAt(LocalDateTime.now().plusMinutes(2));
+        otpEntity.setExpiresAt(LocalDateTime.now().plusMinutes(10));
         otpEntity.setVerified(false);
 
         otpRepository.save(otpEntity);
@@ -468,7 +493,7 @@ public class UserService {
     @Transactional
     public void verifyEmailOtp(VerifyOtpRequest request) {
         OtpVerification otp = otpRepository
-                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByCreatedAtDesc(
+                .findTopByTargetAndOtpTypeAndVerifiedFalseOrderByOtpVerificationIdDesc(
                         request.getEmail(), OtpVerification.OtpType.EMAIL_VERIFICATION)
                 .orElseThrow(() -> new ApiException("INVALID_OTP"));
 
@@ -483,26 +508,6 @@ public class UserService {
 
     private boolean userHasNoTrustedDevices(User user) {
         return userDeviceRepository.countTrustedDevices(user.getId()) == 0;
-    }
-
-    public void sendNewDeviceOtp(User user) {
-
-        otpRepository.invalidateOldOtps(
-                user.getId(),
-                OtpVerification.OtpType.NEW_DEVICE_VERIFICATION);
-
-        String otp = otpService.generateOtp();
-
-        OtpVerification entity = new OtpVerification();
-        entity.setUser(user);
-        entity.setTarget(user.getEmail());
-        entity.setOtpType(OtpVerification.OtpType.NEW_DEVICE_VERIFICATION);
-        entity.setOtpCode(otp);
-        entity.setExpiresAt(LocalDateTime.now().plusMinutes(5));
-
-        otpRepository.save(entity);
-
-        emailService.sendOtpEmail(user.getEmail(), otp);
     }
 
 }

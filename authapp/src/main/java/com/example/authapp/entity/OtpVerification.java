@@ -15,12 +15,10 @@ public class OtpVerification {
 
     }
 
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "otp_verification_id")
     private Long otpVerificationId;
-
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -45,8 +43,8 @@ public class OtpVerification {
 
     private boolean verified = false;
 
-
-    @Column(name = "created_timestamp", insertable = false, updatable = false)
+    @org.hibernate.annotations.CreationTimestamp
+    @Column(name = "created_timestamp", updatable = false)
     private LocalDateTime createdAt;
 
     // getters & setters

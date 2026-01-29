@@ -4,9 +4,28 @@ import com.example.authapp.dto.ApiErrorResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.validation.FieldError;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ResponseEntity<ApiErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+                String errorCode = "BAD_REQUEST";
+                String errorMessage = "Validation failed";
+
+                if (ex.getBindingResult().hasErrors()) {
+                        FieldError error = ex.getBindingResult().getFieldError();
+                        if (error != null) {
+                                errorCode = error.getDefaultMessage(); // e.g. NAME_REQUIRED
+                                errorMessage = "Validation failed: " + errorCode;
+                        }
+                }
+
+                return ResponseEntity.status(400).body(
+                                new ApiErrorResponse(400, errorCode, errorMessage));
+        }
 
         @ExceptionHandler(ApiException.class)
         public ResponseEntity<ApiErrorResponse> handleApiException(ApiException ex) {

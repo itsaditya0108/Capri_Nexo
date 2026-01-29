@@ -55,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .orElse(true); // If session not found, treat as revoked
 
                 if (isRevoked) {
-                    logger.warn("Session is revoked or not found for sessionId: {}", sessionId);
+                    logger.debug("Session is revoked or not found for sessionId: {}", sessionId);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     return;
                 }

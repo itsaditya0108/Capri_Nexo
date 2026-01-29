@@ -3,15 +3,34 @@ package com.example.authapp.dto;
 public class DeviceContextDto {
 
     private String deviceId;
-    private String deviceType;   // MOBILE / TABLET
-    private String os;           // Android / iOS
+    private String deviceType; // MOBILE / TABLET
+    private String os; // Android / iOS
     private String osVersion;
     private String appVersion;
-    private String networkType;  // WIFI / MOBILE
+    private String networkType; // WIFI / MOBILE
+
+    private String deviceModel;
+    private String manufacturer;
 
     private LocationDto location;
 
     // getters & setters
+
+    public String getDeviceModel() {
+        return deviceModel;
+    }
+
+    public void setDeviceModel(String deviceModel) {
+        this.deviceModel = deviceModel;
+    }
+
+    public String getManufacturer() {
+        return manufacturer;
+    }
+
+    public void setManufacturer(String manufacturer) {
+        this.manufacturer = manufacturer;
+    }
 
     public String getDeviceId() {
         return deviceId;

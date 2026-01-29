@@ -28,6 +28,17 @@
                     </svg>
                 </span>
             </div>
+            <div class="password-container">
+                <input id="confirmPassword" type="password" placeholder="Re-enter Password" required />
+                <span id="toggleConfirmPassword" class="password-toggle" title="Show Password">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 4.5z">
+                        </path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                </span>
+            </div>
             <button type="submit">Register</button>
         </form>
 
@@ -52,6 +63,8 @@
         const phoneInput = document.getElementById("phone");
         const passwordInput = document.getElementById("password");
         const togglePassword = document.getElementById("togglePassword");
+        const confirmPasswordInput = document.getElementById("confirmPassword");
+        const toggleConfirmPassword = document.getElementById("toggleConfirmPassword");
 
         // =======================
         // VALIDATION HELPERS
@@ -66,40 +79,40 @@
         }
 
         function validatePassword(password) {
-    if (typeof password !== "string") {
-        return "Invalid password";
-    }
+            if (typeof password !== "string") {
+                return "Invalid password";
+            }
 
-    if (password.length < 8) {
-        return "Password must be at least 8 characters";
-    }
+            if (password.length < 8) {
+                return "Password must be at least 8 characters";
+            }
 
-    if (password.length > 72) {
-        return "Password too long";
-    }
+            if (password.length > 72) {
+                return "Password too long";
+            }
 
-    if (/\s/.test(password)) {
-        return "Password cannot contain spaces";
-    }
+            if (/\s/.test(password)) {
+                return "Password cannot contain spaces";
+            }
 
-    if (!/[A-Z]/.test(password)) {
-        return "Add at least one uppercase letter";
-    }
+            if (!/[A-Z]/.test(password)) {
+                return "Add at least one uppercase letter";
+            }
 
-    if (!/[a-z]/.test(password)) {
-        return "Add at least one lowercase letter";
-    }
+            if (!/[a-z]/.test(password)) {
+                return "Add at least one lowercase letter";
+            }
 
-    if (!/[0-9]/.test(password)) {
-        return "Add at least one number";
-    }
+            if (!/[0-9]/.test(password)) {
+                return "Add at least one number";
+            }
 
-    if (!/[^\w\s]/.test(password)) {
-        return "Add at least one special character";
-    }
+            if (!/[^\w\s]/.test(password)) {
+                return "Add at least one special character";
+            }
 
-    return null; // ✅ VALID
-}
+            return null; // ✅ VALID
+        }
 
 
         // =======================
@@ -135,6 +148,62 @@
             this.innerHTML = isHidden ? eyeIcon : eyeSlashIcon;
         });
 
+        toggleConfirmPassword.addEventListener("click", function () {
+            const isHidden = confirmPasswordInput.type === "password";
+            confirmPasswordInput.type = isHidden ? "text" : "password";
+            this.innerHTML = isHidden ? eyeIcon : eyeSlashIcon;
+        });
+
+        // =======================
+        // DEVICE CONTEXT
+        // =======================
+
+        if (!localStorage.getItem("webDeviceId")) {
+            const uuid = (crypto.randomUUID && crypto.randomUUID()) ||
+                (Math.random().toString(36).substring(2) + Date.now().toString(36));
+            localStorage.setItem("webDeviceId", uuid);
+        }
+
+        function getLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        resolve({
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            accuracy: Math.round(pos.coords.accuracy)
+                        });
+                    },
+                    (err) => {
+                        console.warn("Geolocation error:", err.message);
+                        resolve(null);
+                    },
+                    { timeout: 5000, enableHighAccuracy: true }
+                );
+            });
+        }
+
+        async function buildDeviceContext() {
+            const location = await getLocation();
+            return {
+                deviceId: "web-" + localStorage.getItem("webDeviceId"),
+                deviceType: "BROWSER",
+                manufacturer: "Browser",
+                deviceModel: navigator.userAgent.includes("Android")
+                    ? "Android Chrome"
+                    : (navigator.userAgent.includes("iPhone") ? "iPhone Safari" : "Desktop Browser"),
+                os: navigator.platform,
+                osVersion: navigator.appVersion,
+                appVersion: "1.0.0-web",
+                networkType: navigator.connection ? navigator.connection.effectiveType : "unknown",
+                location: location
+            };
+        }
+
         // =======================
         // FORM SUBMISSION
         // =======================
@@ -154,8 +223,13 @@
                 return;
             }
 
-            if (name.length < 2) {
-                result.innerText = "Name must be at least 2 characters";
+            if (name.length < 3) {
+                result.innerText = "Name must be at least 3 characters";
+                return;
+            }
+
+            if (name.length > 21) {
+                result.innerText = "Name must be maximum 20 characters";
                 return;
             }
 
@@ -178,10 +252,21 @@
                 return;
             }
 
+            // ---- Confirm Password Validation
+            const confirmPassword = confirmPasswordInput.value;
+            if (password !== confirmPassword) {
+                result.innerText = "Passwords do not match";
+                return;
+            }
+
             // ---- Prevent double submit
             registerBtn.disabled = true;
+            result.innerText = "Gathering device info...";
 
             try {
+                const deviceContext = await buildDeviceContext();
+                result.innerText = "Creating account...";
+
                 const response = await fetch("/api/auth/register", {
                     method: "POST",
                     headers: {
@@ -191,7 +276,8 @@
                         name,
                         email,
                         phone,
-                        password
+                        password,
+                        deviceContext: deviceContext
                     })
                 });
 
