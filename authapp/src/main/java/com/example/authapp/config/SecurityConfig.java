@@ -48,6 +48,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/images/**",
                                                                 "/favicon.ico", "/error")
                                                 .permitAll()
+                                                .requestMatchers("/actuator/**").permitAll()
                                                 .anyRequest().authenticated())
 
                                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
