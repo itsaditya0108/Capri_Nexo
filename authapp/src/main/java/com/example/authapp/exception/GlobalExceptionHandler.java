@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.validation.FieldError;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.dao.CannotAcquireLockException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -178,6 +181,13 @@ public class GlobalExceptionHandler {
                                                                 "DEVICE_NOT_FOUND",
                                                                 "Device identification failed."));
 
+                        case "FAILED_TO_SEND_EMAIL" ->
+                                ResponseEntity.status(503).body(
+                                                new ApiErrorResponse(
+                                                                503,
+                                                                "FAILED_TO_SEND_EMAIL",
+                                                                "Failed to send verification email. Please check your email configuration or try again later."));
+
                         default ->
                                 ResponseEntity.status(400).body(
                                                 new ApiErrorResponse(
@@ -185,5 +195,32 @@ public class GlobalExceptionHandler {
                                                                 ex.getCode(),
                                                                 "Bad request"));
                 };
+        }
+
+        @ExceptionHandler(Exception.class)
+        public ResponseEntity<ApiErrorResponse> handleGeneralException(Exception ex) {
+                return ResponseEntity.status(500).body(
+                                new ApiErrorResponse(
+                                                500,
+                                                "INTERNAL_SERVER_ERROR",
+                                                ex.getMessage() != null ? ex.getMessage()
+                                                                : "An unexpected error occurred"));
+        }
+
+        @ExceptionHandler({
+                        DataIntegrityViolationException.class,
+                        TransactionSystemException.class,
+                        CannotAcquireLockException.class
+        })
+        public ResponseEntity<ApiErrorResponse> handleDatabaseExceptions(Exception ex) {
+                String message = "Database error occurred";
+                if (ex instanceof CannotAcquireLockException || ex.getMessage().contains("Lock wait timeout")) {
+                        message = "The system is busy or a database lock occurred. Please try again in a few moments.";
+                } else if (ex instanceof DataIntegrityViolationException) {
+                        message = "Data integrity violation. This record might already exist or violates constraints.";
+                }
+
+                return ResponseEntity.status(500).body(
+                                new ApiErrorResponse(500, "DATABASE_ERROR", message));
         }
 }

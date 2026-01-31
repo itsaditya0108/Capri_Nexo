@@ -9,40 +9,37 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+  private final JavaMailSender mailSender;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
+  public EmailService(JavaMailSender mailSender) {
+    this.mailSender = mailSender;
+  }
+
+  public void sendOtpEmail(String toEmail, String otp) {
+
+    try {
+      MimeMessage message = mailSender.createMimeMessage();
+      MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+      helper.setFrom(
+          new InternetAddress(
+              "sonukanojiya707@gmail.com",
+              "Capri Nexo"));
+
+      helper.setTo(toEmail);
+      helper.setSubject("Your OTP Verification Code");
+
+      helper.setText(buildOtpTemplate(otp), true);
+
+      mailSender.send(message);
+
+    } catch (Exception e) {
+      throw new com.example.authapp.exception.ApiException("FAILED_TO_SEND_EMAIL");
     }
+  }
 
-    public void sendOtpEmail(String toEmail, String otp) {
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(
-                    new InternetAddress(
-                            "sonukanojiya707@gmail.com",
-                            "Capri Nexo"
-                    )
-            );
-
-            helper.setTo(toEmail);
-            helper.setSubject("Your OTP Verification Code");
-
-            helper.setText(buildOtpTemplate(otp), true);
-
-            mailSender.send(message);
-
-        } catch (Exception e) {
-            throw new RuntimeException("FAILED_TO_SEND_EMAIL", e);
-        }
-    }
-
-    private String buildOtpTemplate(String otp) {
-        return """
+  private String buildOtpTemplate(String otp) {
+    return """
             <div style="font-family:Arial,Helvetica,sans-serif;
                         max-width:520px;
                         margin:auto;
@@ -84,5 +81,5 @@ public class EmailService {
 
             </div>
         """.formatted(otp);
-    }
+  }
 }
