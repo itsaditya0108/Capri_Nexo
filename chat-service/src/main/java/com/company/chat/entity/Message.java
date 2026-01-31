@@ -53,7 +53,6 @@ public class Message {
 
 //    getter / setter
 
-
     public Long getMessageId() {
         return messageId;
     }
