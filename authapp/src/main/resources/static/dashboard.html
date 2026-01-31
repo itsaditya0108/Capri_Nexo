@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capri Nexo</title>
-    <link rel="stylesheet" href="/css/dashboard.css?v=hero2">
+    <link rel="stylesheet" href="css/dashboard.css?v=hero2">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </head>
@@ -394,7 +394,7 @@
                 <h2>Security</h2>
                 <div class="info-row">
                     <span class="label">Password</span>
-                    <a href="/forgot-password.html" class="btn btn-link">Change Password</a>
+                    <a href="forgot-password.html" class="btn btn-link">Change Password</a>
                 </div>
                 <div class="info-row">
                     <span class="label">Session</span>
@@ -449,7 +449,7 @@
             token = sessionStorage.getItem("accessToken");
 
             if (!userData || !token) {
-                window.location.href = "/login.html";
+                window.location.href = "login.html";
                 return;
             }
 
@@ -496,7 +496,7 @@
                     if (!url.includes("/api/auth/login") && !url.includes("/api/auth/refresh")) {
                         console.warn("Session expired or revoked (401). Redirecting to login...");
                         sessionStorage.clear();
-                        window.location.href = "/login.html";
+                        window.location.href = "login.html";
                     }
                 }
                 return response;
@@ -781,7 +781,7 @@
 
             if (refreshToken) {
                 try {
-                    await fetch("/api/auth/logout", {
+                    await fetch("api/auth/logout", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -795,7 +795,7 @@
             }
 
             sessionStorage.clear();
-            window.location.href = "/login.html";
+            window.location.href = "login.html";
         }
 
         async function uploadProfile() {

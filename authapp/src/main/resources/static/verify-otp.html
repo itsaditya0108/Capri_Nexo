@@ -1,36 +1,34 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset="UTF-8">
-    <title>Verify OTP</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/styles.css">
+  <meta charset="UTF-8">
+  <title>Verify OTP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
 
-<div class="container">
+  <div class="container">
     <h2>OTP Verification</h2>
 
     <div id="otpInfo" class="info"></div>
     <div id="timer" class="info"></div>
 
     <form id="otpForm">
-        <input id="otp" placeholder="Enter 6-digit OTP" maxlength="6" required />
-        <button type="submit">Verify OTP</button>
+      <input id="otp" placeholder="Enter 6-digit OTP" maxlength="6" required />
+      <button type="submit">Verify OTP</button>
     </form>
 
     <div id="otpResult" class="info"></div>
 
-    <button
-            id="resendBtn"
-            type="button"
-            onclick="resendOtp()"
-            disabled>
-        Resend OTP
+    <button id="resendBtn" type="button" onclick="resendOtp()" disabled>
+      Resend OTP
     </button>
-</div>
+  </div>
 
-<script>
+  <script>
     function maskEmail(email) {
       const [u, d] = email.split("@");
       if (u.length <= 2) return u[0] + "*@" + d;
@@ -38,7 +36,7 @@
     }
 
     const email = sessionStorage.getItem("email");
-    if (!email) window.location.href = "/register.html";
+    if (!email) window.location.href = "register.html";
 
     document.getElementById("otpInfo").innerText =
       "OTP sent to " + maskEmail(email);
@@ -67,10 +65,10 @@
     startOtpTimer();
 
     /* ===== VERIFY OTP ===== */
-    otpForm.onsubmit = async function(e) {
+    otpForm.onsubmit = async function (e) {
       e.preventDefault();
 
-      const res = await fetch("/api/auth/verify-email-otp", {
+      const res = await fetch("api/auth/verify-email-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp: otp.value })
@@ -80,7 +78,7 @@
         otpResult.innerHTML =
           "<b style='color:green'>OTP verified</b>";
         setTimeout(() => {
-          window.location.href = "/login.html";
+          window.location.href = "login.html";
         }, 1200);
       } else {
         otpResult.innerText = "Invalid or expired OTP";
@@ -93,7 +91,7 @@
       remainingTime = OTP_EXPIRY_SECONDS;
       startOtpTimer();
 
-      const res = await fetch("/api/auth/resend-otp", {
+      const res = await fetch("api/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email })
@@ -103,7 +101,8 @@
         ? "<b style='color:green'>New OTP sent</b>"
         : "<span style='color:red'>Failed to resend OTP</span>";
     }
-</script>
+  </script>
 
 </body>
+
 </html>

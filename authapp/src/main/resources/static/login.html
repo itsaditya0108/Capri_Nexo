@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
@@ -37,9 +37,9 @@
         <div id="loginResult" class="info"></div>
 
         <div class="info">
-            <a href="/forgot-password.html">Forgot password?</a><br>
+            <a href="forgot-password.html">Forgot password?</a><br>
             New user?
-            <a href="/register.html">Register</a>
+            <a href="register.html">Register</a>
         </div>
     </div>
 
@@ -105,7 +105,7 @@
 
             try {
                 const deviceContext = await buildDeviceContext();
-                const res = await fetch("/api/auth/verify-new-device", {
+                const res = await fetch("api/auth/verify-new-device", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -133,7 +133,7 @@
                         emailVerified: data.emailVerified,
                         phoneVerified: data.phoneVerified
                     }));
-                    window.location.href = "/dashboard.html";
+                    window.location.href = "dashboard.html";
                 } else {
                     modalResult.innerText = data.message || "Verification failed";
                 }
@@ -202,13 +202,13 @@
             const email = sessionStorage.getItem("email");
             if (!email) return;
 
-            await fetch("/api/auth/resend-otp", {
+            await fetch("api/auth/resend-otp", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email })
             });
 
-            window.location.href = "/verify-otp.html";
+            window.location.href = "verify-otp.html";
         }
 
         loginForm.onsubmit = async function (e) {
@@ -235,7 +235,7 @@
                 const deviceContext = await buildDeviceContext();
                 loginResult.innerText = "Logging in...";
 
-                const res = await fetch("/api/auth/login", {
+                const res = await fetch("api/auth/login", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -264,7 +264,7 @@
                         phoneVerified: data.phoneVerified
                     }));
 
-                    window.location.href = "/dashboard.html";
+                    window.location.href = "dashboard.html";
                     return;
                 }
 

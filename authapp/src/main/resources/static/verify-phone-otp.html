@@ -1,55 +1,52 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset="UTF-8">
-    <title>Verify Phone OTP</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/styles.css">
+  <meta charset="UTF-8">
+  <title>Verify Phone OTP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
 
-<div class="container">
+  <div class="container">
     <h2>Phone OTP Verification</h2>
 
     <div id="info" class="info"></div>
 
     <form id="otpForm">
-        <input
-                id="otp"
-                placeholder="Enter 6-digit OTP"
-                maxlength="6"
-                required
-        />
-        <button type="submit">Verify OTP</button>
+      <input id="otp" placeholder="Enter 6-digit OTP" maxlength="6" required />
+      <button type="submit">Verify OTP</button>
     </form>
 
     <div id="result" class="info"></div>
-</div>
+  </div>
 
-<script>
+  <script>
     const user = JSON.parse(sessionStorage.getItem("user"));
-const flow = sessionStorage.getItem("verifyPhoneFlow");
+    const flow = sessionStorage.getItem("verifyPhoneFlow");
 
-if (!user || !flow) {
-  window.location.href = "/dashboard.html";
-}
+    if (!user || !flow) {
+      window.location.href = "dashboard.html";
+    }
 
-function maskPhone(phone) {
-  return phone.slice(0, 3) + "*****" + phone.slice(-2);
-}
+    function maskPhone(phone) {
+      return phone.slice(0, 3) + "*****" + phone.slice(-2);
+    }
 
-let phone;
-const info = document.getElementById("info");
+    let phone;
+    const info = document.getElementById("info");
 
-if (flow === "VERIFY_EXISTING") {
-  phone = user.phone;
-  info.innerText = "OTP sent to " + maskPhone(phone);
-}
+    if (flow === "VERIFY_EXISTING") {
+      phone = user.phone;
+      info.innerText = "OTP sent to " + maskPhone(phone);
+    }
 
-if (flow === "CHANGE_PHONE") {
-  phone = sessionStorage.getItem("pendingPhone");
-  info.innerText = "OTP sent to " + maskPhone(phone);
-}
+    if (flow === "CHANGE_PHONE") {
+      phone = sessionStorage.getItem("pendingPhone");
+      info.innerText = "OTP sent to " + maskPhone(phone);
+    }
 
 
     const otpForm = document.getElementById("otpForm");
@@ -62,7 +59,7 @@ if (flow === "CHANGE_PHONE") {
       btn.disabled = true;
 
       try {
-        const res = await fetch("/api/auth/phone/verify-otp", {
+        const res = await fetch("api/auth/phone/verify-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phone, otp: otp.value })
@@ -81,7 +78,7 @@ if (flow === "CHANGE_PHONE") {
             "<b class='success'>Phone verified successfully</b>";
 
           setTimeout(() => {
-            window.location.href = "/dashboard.html";
+            window.location.href = "dashboard.html";
           }, 1200);
         } else {
           const data = await res.json();
@@ -93,7 +90,8 @@ if (flow === "CHANGE_PHONE") {
         setTimeout(() => btn.disabled = false, 1500);
       }
     };
-</script>
+  </script>
 
 </body>
+
 </html>

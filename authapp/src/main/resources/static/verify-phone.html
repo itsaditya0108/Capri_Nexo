@@ -1,37 +1,34 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset="UTF-8">
-    <title>Change Phone Number</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/styles.css">
+  <meta charset="UTF-8">
+  <title>Change Phone Number</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
 
-<div class="container">
+  <div class="container">
     <h2>Change Phone Number</h2>
     <div class="subtitle">
-        Enter your new mobile number. We will verify it with OTP.
+      Enter your new mobile number. We will verify it with OTP.
     </div>
 
     <form id="phoneForm">
-        <input
-                id="phone"
-                placeholder="New mobile number"
-                maxlength="10"
-                required
-        />
-        <button type="submit">Send OTP</button>
+      <input id="phone" placeholder="New mobile number" maxlength="10" required />
+      <button type="submit">Send OTP</button>
     </form>
 
     <div id="result" class="info"></div>
-</div>
+  </div>
 
-<script>
+  <script>
     /* ===== GUARD ===== */
     const user = JSON.parse(sessionStorage.getItem("user"));
     if (!user) {
-      window.location.href = "/login.html";
+      window.location.href = "login.html";
     }
 
     function isValidPhone(phone) {
@@ -56,7 +53,7 @@
       btn.disabled = true;
 
       try {
-        const res = await fetch("/api/auth/phone/send-otp", {
+        const res = await fetch("api/auth/phone/send-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phone })
@@ -65,7 +62,7 @@
         if (res.ok) {
           sessionStorage.setItem("pendingPhone", phone);
           sessionStorage.setItem("verifyPhoneFlow", "CHANGE_PHONE");
-          window.location.href = "/verify-phone-otp.html";
+          window.location.href = "verify-phone-otp.html";
         } else {
           const data = await res.json();
           result.innerText = data.message || "Failed to send OTP";
@@ -76,7 +73,8 @@
         setTimeout(() => btn.disabled = false, 1500);
       }
     };
-</script>
+  </script>
 
 </body>
+
 </html>
