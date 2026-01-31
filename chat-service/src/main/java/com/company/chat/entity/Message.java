@@ -40,6 +40,12 @@ public class Message {
     )
     private Instant createdTimestamp;
 
+    @Column(name = "message_type")
+    private String messageType;
+
+    @Column(name = "image_id")
+    private Long imageId;
+
     @PrePersist
     protected void onSend() {
         this.createdTimestamp = Instant.now();
@@ -94,6 +100,22 @@ public class Message {
 
     public void setCreatedTimestamp(Instant createdTimestamp) {
         this.createdTimestamp = createdTimestamp;
+    }
+
+    public String getMessageType() {
+        return messageType;
+    }
+
+    public void setMessageType(String messageType) {
+        this.messageType = messageType;
+    }
+
+    public Long getImageId() {
+        return imageId;
+    }
+
+    public void setImageId(Long imageId) {
+        this.imageId = imageId;
     }
 }
 
