@@ -430,7 +430,7 @@
         const hostname = window.location.hostname || 'localhost';
         const protocol = window.location.protocol || 'http:';
         const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8082`;
-        const AUTH_BASE = `${protocol}//${hostname}:8081/authapp`;
+        const AUTH_BASE = `${protocol}//${hostname}:8082/authapp`;
 
         const IMAGE_BASE = `${protocol}//${hostname}:8083`;
         let user = null;
