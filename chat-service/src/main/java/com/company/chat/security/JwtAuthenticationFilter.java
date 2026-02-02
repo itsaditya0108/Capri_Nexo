@@ -13,6 +13,7 @@ import java.util.Collections;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private final JwtUtil jwtUtil;
     private final String authServiceUrl;
 
     public JwtAuthenticationFilter(JwtUtil jwtUtil, String authServiceUrl) {

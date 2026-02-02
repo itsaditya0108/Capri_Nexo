@@ -16,8 +16,18 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SecurityConfig.class);
+
+        @Value("${security.jwt.secret}")
+        private String jwtSecret;
+
         @Value("${auth.service.base-url}")
         private String authServiceBaseUrl;
+
+        @jakarta.annotation.PostConstruct
+        public void logAuthBaseUrl() {
+                log.info("AUTH SERVICE BASE URL = {}", authServiceBaseUrl);
+        }
 
         @Bean
         public JwtUtil jwtUtil() {
