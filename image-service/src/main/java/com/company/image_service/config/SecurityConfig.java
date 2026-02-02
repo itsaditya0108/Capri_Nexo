@@ -17,29 +17,37 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Profile("prod")
 public class SecurityConfig {
 
-    @Value("${auth.service.base-url}")
-    private String authServiceBaseUrl;
+        @Value("${auth.service.base-url}")
+        private String authServiceBaseUrl;
 
-    @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtUtil jwtUtil) {
-        return new JwtAuthenticationFilter(jwtUtil, authServiceBaseUrl);
-    }
+        @Value("${security.jwt.secret}")
+        private String jwtSecret;
 
-    @Bean
-    public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtFilter) throws Exception {
+        @Bean
+        public JwtUtil jwtUtil() {
+                return new JwtUtil(jwtSecret);
+        }
 
-        http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+        @Bean
+        public JwtAuthenticationFilter jwtAuthenticationFilter(JwtUtil jwtUtil) {
+                return new JwtAuthenticationFilter(jwtUtil, authServiceBaseUrl);
+        }
 
-        return http.build();
-    }
+        @Bean
+        public SecurityFilterChain filterChain(
+                        HttpSecurity http,
+                        JwtAuthenticationFilter jwtFilter) throws Exception {
+
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .cors(cors -> cors.disable())
+                                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/actuator/**").permitAll()
+                                                .requestMatchers("/api/**").authenticated()
+                                                .anyRequest().permitAll())
+                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+                return http.build();
+        }
 }
