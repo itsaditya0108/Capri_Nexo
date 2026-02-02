@@ -88,6 +88,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 6️⃣ Attach userId to request for downstream layers
             request.setAttribute("userId", userId);
 
+            // 6.5️⃣ Populate Spring Security Context (CRITICAL for Prod Profile)
+            org.springframework.security.authentication.UsernamePasswordAuthenticationToken auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                    userId, null, java.util.Collections.emptyList());
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
             // 7️⃣ Continue request
             filterChain.doFilter(request, response);
 
