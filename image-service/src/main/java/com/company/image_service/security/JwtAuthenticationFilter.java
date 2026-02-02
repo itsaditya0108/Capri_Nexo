@@ -107,7 +107,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            java.net.URL url = new java.net.URL("http://localhost:8080/api/auth/validate-session");
+            java.net.URL url = new java.net.URL("http://localhost:8082/api/auth/validate-session");
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Authorization", "Bearer " + token);
