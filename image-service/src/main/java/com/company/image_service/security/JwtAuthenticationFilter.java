@@ -12,9 +12,11 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final String authServiceUrl;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, String authServiceUrl) {
         this.jwtUtil = jwtUtil;
+        this.authServiceUrl = authServiceUrl;
     }
 
     @Override
@@ -107,7 +109,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            java.net.URL url = new java.net.URL("http://localhost:8082/api/auth/validate-session");
+            java.net.URL url = new java.net.URL(authServiceUrl + "/api/auth/validate-session");
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Authorization", "Bearer " + token);
