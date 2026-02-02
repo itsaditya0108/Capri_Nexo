@@ -15,72 +15,69 @@ import java.util.stream.Collectors;
 @Component
 public class AuthUserClient {
 
-    private final RestTemplate restTemplate;
+        private final RestTemplate restTemplate;
 
-    @Value("${auth.service.base-url}")
-    private String authBaseUrl;
+        private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthUserClient.class);
 
-    public AuthUserClient(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
+        @Value("${auth.service.base-url}")
+        private String authBaseUrl;
 
-    /* ================= SEARCH USERS ================= */
+        @jakarta.annotation.PostConstruct
+        public void debugAuthUrl() {
+                log.info("CHAT -> AUTH BASE URL (Client) = {}", authBaseUrl);
+        }
 
-    public List<UserSearchResponse> searchUsers(
-            String query,
-            String authHeader
-    ) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", authHeader);
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        public AuthUserClient(RestTemplate restTemplate) {
+                this.restTemplate = restTemplate;
+        }
 
-        Map<String, Object> body = Map.of(
-                "query", query,
-                "limit", 10
-        );
+        /* ================= SEARCH USERS ================= */
 
-        HttpEntity<Map<String, Object>> entity =
-                new HttpEntity<>(body, headers);
+        public List<UserSearchResponse> searchUsers(
+                        String query,
+                        String authHeader) {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", authHeader);
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<UserSearchResponse[]> response =
-                restTemplate.postForEntity(
-                        authBaseUrl + "/internal/users/search",
-                        entity,
-                        UserSearchResponse[].class
-                );
+                Map<String, Object> body = Map.of(
+                                "query", query,
+                                "limit", 10);
 
-        return Arrays.asList(
-                Objects.requireNonNull(response.getBody())
-        );
-    }
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
-    /* ================= GET USERS BY IDS (NEW) ================= */
+                ResponseEntity<UserSearchResponse[]> response = restTemplate.postForEntity(
+                                authBaseUrl + "/internal/users/search",
+                                entity,
+                                UserSearchResponse[].class);
 
-    public Map<Long, String> getUserNamesByIds(
-            Set<Long> userIds,
-            String authHeader
-    ) {
-        if (userIds.isEmpty()) return Map.of();
+                return Arrays.asList(
+                                Objects.requireNonNull(response.getBody()));
+        }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", authHeader);
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        /* ================= GET USERS BY IDS (NEW) ================= */
 
-        HttpEntity<Set<Long>> entity =
-                new HttpEntity<>(userIds, headers);
+        public Map<Long, String> getUserNamesByIds(
+                        Set<Long> userIds,
+                        String authHeader) {
+                if (userIds.isEmpty())
+                        return Map.of();
 
-        ResponseEntity<UserSearchResponse[]> response =
-                restTemplate.postForEntity(
-                        authBaseUrl + "/internal/users/by-ids",
-                        entity,
-                        UserSearchResponse[].class
-                );
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", authHeader);
+                headers.setContentType(MediaType.APPLICATION_JSON);
 
-        return Arrays.stream(response.getBody())
-                .collect(Collectors.toMap(
-                        UserSearchResponse::userId,
-                        UserSearchResponse::name
-                ));
-    }
+                HttpEntity<Set<Long>> entity = new HttpEntity<>(userIds, headers);
+
+                ResponseEntity<UserSearchResponse[]> response = restTemplate.postForEntity(
+                                authBaseUrl + "/internal/users/by-ids",
+                                entity,
+                                UserSearchResponse[].class);
+
+                return Arrays.stream(response.getBody())
+                                .collect(Collectors.toMap(
+                                                UserSearchResponse::userId,
+                                                UserSearchResponse::name));
+        }
 
 }
