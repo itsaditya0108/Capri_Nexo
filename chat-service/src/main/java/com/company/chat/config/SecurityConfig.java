@@ -16,73 +16,67 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${security.jwt.secret}")
-    private String jwtSecret;
+        @Value("${auth.service.base-url}")
+        private String authServiceBaseUrl;
 
-    @Bean
-    public JwtUtil jwtUtil() {
-        return new JwtUtil(jwtSecret);
-    }
+        @Bean
+        public JwtUtil jwtUtil() {
+                return new JwtUtil(jwtSecret);
+        }
 
-    @Bean
-    public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            JwtUtil jwtUtil) throws Exception {
+        @Bean
+        public SecurityFilterChain filterChain(
+                        HttpSecurity http,
+                        JwtUtil jwtUtil) throws Exception {
 
-        http
-                // 🔒 Stateless API
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                http
+                                // 🔒 Stateless API
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 🌐 Enable CORS
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                                // 🌐 Enable CORS
+                                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // ❌ No CSRF for APIs
-                .csrf(csrf -> csrf.disable())
+                                // ❌ No CSRF for APIs
+                                .csrf(csrf -> csrf.disable())
 
-                // 🔐 Authorization
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/internal/**").authenticated()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/sse/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/conversations/**").authenticated()
-                        .anyRequest().authenticated()
-                )
+                                // 🔐 Authorization
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/internal/**").authenticated()
+                                                .requestMatchers("/api/auth/**").permitAll()
+                                                .requestMatchers("/api/sse/**").permitAll()
+                                                .requestMatchers("/actuator/**").permitAll()
+                                                .requestMatchers("/api/conversations/**").authenticated()
+                                                .anyRequest().authenticated())
 
+                                // 🚨 JWT filter
+                                .addFilterBefore(
+                                                new JwtAuthenticationFilter(jwtUtil, authServiceBaseUrl),
+                                                UsernamePasswordAuthenticationFilter.class)
 
-                // 🚨 JWT filter
-                .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtUtil),
-                        UsernamePasswordAuthenticationFilter.class)
+                                // ❗ Clear auth errors
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint(
+                                                                (req, res, ex1) -> res.sendError(
+                                                                                HttpServletResponse.SC_UNAUTHORIZED,
+                                                                                "Unauthorized")));
 
-                // ❗ Clear auth errors
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(
-                                (req, res, ex1) -> res.sendError(
-                                        HttpServletResponse.SC_UNAUTHORIZED,
-                                        "Unauthorized")));
+                return http.build();
+        }
 
-        return http.build();
-    }
+        @Bean
+        public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+                org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
 
-    @Bean
-    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
-        org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+                // Allow all origins for development (e.g. localhost:3000, localhost:5173, etc.)
+                configuration.setAllowedOriginPatterns(java.util.List.of("*"));
 
-        // Allow all origins for development (e.g. localhost:3000, localhost:5173, etc.)
-        configuration.setAllowedOriginPatterns(java.util.List.of("*"));
+                configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                configuration.setAllowedHeaders(java.util.List.of("*"));
+                configuration.setAllowCredentials(true);
 
-        configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(java.util.List.of("*"));
-        configuration.setAllowCredentials(true);
-
-        org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+                org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", configuration);
+                return source;
+        }
 }
-
-
-
-

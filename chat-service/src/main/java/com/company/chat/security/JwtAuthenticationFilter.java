@@ -13,10 +13,11 @@ import java.util.Collections;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtUtil jwtUtil;
+    private final String authServiceUrl;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, String authServiceUrl) {
         this.jwtUtil = jwtUtil;
+        this.authServiceUrl = authServiceUrl;
     }
 
     @Override
@@ -66,6 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception ex) {
             SecurityContextHolder.clearContext();
             System.err.println("==== JWT AUTHENTICATION FAILED ====");
+            ex.printStackTrace(); // Print stack trace for debugging
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
             response.getWriter().write("""
@@ -88,7 +90,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         try {
-            java.net.URL url = new java.net.URL("http://localhost:8082/api/auth/validate-session");
+            // Use configured URL
+            String validateUrl = authServiceUrl + "/api/auth/validate-session";
+            java.net.URL url = new java.net.URL(validateUrl);
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Authorization", "Bearer " + token);
@@ -100,9 +104,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 VALID_SESSION_CACHE.put(token, now);
                 return true;
             }
+            System.err.println("Session validation failed: HTTP " + code);
             return false;
         } catch (Exception e) {
             System.err.println("Session validation failed (Auth service unreachable): " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }
