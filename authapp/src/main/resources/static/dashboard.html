@@ -429,10 +429,10 @@
         // Dynamic CHAT_BASE that works on localhost AND network (192.168.x.x)
         const hostname = window.location.hostname || 'localhost';
         const protocol = window.location.protocol || 'http:';
-        const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8082`;
+        const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8083`;
         const AUTH_BASE = `${protocol}//${hostname}:8082/authapp`;
 
-        const IMAGE_BASE = `${protocol}//${hostname}:8083`;
+        const IMAGE_BASE = `${protocol}//${hostname}:8084`;
         let user = null;
         let token = null;
         let activeConversationId = null;

@@ -6,6 +6,7 @@ import com.example.authapp.entity.UserDevice;
 import com.example.authapp.exception.ApiException;
 import com.example.authapp.repository.OtpVerificationRepository;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -66,7 +67,7 @@ public class OtpService {
         log.info("OTP_VALIDATE | SUCCESS | target={}", otp.getTarget());
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendNewDeviceOtp(User user, UserDevice device) {
 
         // Invalidate old NEW_DEVICE OTPs for this user

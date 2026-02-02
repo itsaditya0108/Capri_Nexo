@@ -19,7 +19,7 @@ public class UserDeviceService {
         this.userDeviceRepository = userDeviceRepository;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public UserDevice saveOrUpdateUserDevice(User user, DeviceContextDto deviceContext) {
         if (deviceContext == null || deviceContext.getDeviceId() == null)
             return null;
