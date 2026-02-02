@@ -16,7 +16,8 @@ public class JwtService {
         @Value("${jwt.secret}")
         private String secret;
 
-        private final long ACCESS_TOKEN_TTL_MIN = 60;
+        @Value("${jwt.expiration-min:60}")
+        private long accessTokenTtlMin;
 
         public String generateAccessToken(User user, Long sessionId) {
                 return Jwts.builder()
@@ -27,7 +28,7 @@ public class JwtService {
                                 .setIssuedAt(new Date())
                                 .setExpiration(
                                                 new Date(System.currentTimeMillis()
-                                                                + ACCESS_TOKEN_TTL_MIN * 60 * 1000))
+                                                                + accessTokenTtlMin * 60 * 1000))
                                 .signWith(
                                                 Keys.hmacShaKeyFor(secret.getBytes()),
                                                 SignatureAlgorithm.HS256)
