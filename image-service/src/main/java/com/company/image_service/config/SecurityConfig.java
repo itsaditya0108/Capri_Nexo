@@ -1,6 +1,8 @@
 package com.company.image_service.config;
 
 import com.company.image_service.security.JwtAuthenticationFilter;
+import com.company.image_service.security.JwtUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -15,25 +17,29 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Profile("prod")
 public class SecurityConfig {
 
-        @org.springframework.beans.factory.annotation.Value("${auth.service.base-url}")
-        private String authServiceBaseUrl;
+    @Value("${auth.service.base-url}")
+    private String authServiceBaseUrl;
 
-        @Bean
-        public SecurityFilterChain filterChain(
-                        HttpSecurity http,
-                        JwtAuthenticationFilter jwtFilter) throws Exception {
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtUtil jwtUtil) {
+        return new JwtAuthenticationFilter(jwtUtil, authServiceBaseUrl);
+    }
 
-                http
-                                .csrf(csrf -> csrf.disable())
-                                .cors(cors -> cors.disable()) // Prod relies on gateway or specific allowed origins if
-                                                              // needed, but user asked for disable here
-                                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/actuator/**").permitAll()
-                                                .requestMatchers("/api/**").authenticated()
-                                                .anyRequest().permitAll())
-                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+    @Bean
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtFilter) throws Exception {
 
-                return http.build();
-        }
+        http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.disable())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/**").authenticated()
+                        .anyRequest().permitAll())
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
 }
