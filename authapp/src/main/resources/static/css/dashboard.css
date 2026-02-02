@@ -558,11 +558,12 @@ h2 {
     box-shadow: 0 2px 8px rgba(230, 104, 60, 0.3);
 }
 
-/* INPUT AREA */
+/* CHAT INPUT AREA */
 .chat-input-area {
-    padding: 20px;
+    padding: 12px 16px;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
+    /* Align to bottom for multiline */
     gap: 12px;
     background: var(--bg-white);
     border-top: 1px solid var(--border-color);
@@ -570,35 +571,42 @@ h2 {
 
 .message-input {
     flex: 1;
-    padding: 12px 20px;
+    padding: 10px 16px;
     border: 1px solid var(--border-color);
-    border-radius: 24px;
+    border-radius: 20px;
     outline: none;
     font-size: 14px;
-    background: #fafafa;
-    transition: border-color 0.2s;
+    background: #f4f4f4;
+    transition: all 0.2s;
     line-height: 1.4;
+    max-height: 120px;
+    /* Limit height expansion */
 }
 
 .message-input:focus {
-    border-color: #c7c7c7;
+    border-color: #dbdbdb;
     background: #fff;
+    box-shadow: inset 0 0 0 1px #dbdbdb;
 }
 
 .send-btn-text {
     background: none;
     border: none;
-    color: #e1306c;
-    /* Or use the gradient text trick */
+    color: var(--link-blue);
     font-weight: 600;
     cursor: pointer;
-    font-size: 15px;
-    padding: 4px 8px;
-    transition: opacity 0.2s;
+    font-size: 14px;
+    padding: 6px 4px;
+    transition: opacity 0.2s, transform 0.1s;
+    user-select: none;
 }
 
 .send-btn-text:hover {
-    opacity: 0.7;
+    opacity: 0.8;
+}
+
+.send-btn-text:active {
+    transform: scale(0.95);
 }
 
 /* Helpers */
@@ -1333,37 +1341,6 @@ h2 {
     background-color: var(--bg-body);
     color: white;
     border-bottom-left-radius: 4px;
-}
-
-.chat-input-area {
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--bg-white);
-}
-
-.message-input {
-    flex: 1;
-    padding: 10px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 22px;
-    outline: none;
-    font-size: 14px;
-}
-
-.send-btn-text {
-    background: none;
-    border: none;
-    color: var(--link-blue);
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-/* Helpers */
-.hidden {
-    display: none !important;
 }
 
 

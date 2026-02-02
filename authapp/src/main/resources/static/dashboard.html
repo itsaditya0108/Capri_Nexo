@@ -308,7 +308,6 @@
 
                 <div class="chat-input-area hidden" id="inputArea">
                     <textarea id="messageInput" class="message-input" placeholder="Message..." rows="1"
-                        style="resize:none; height:42px; padding:10px;"
                         onkeydown="handleChatInputKey(event)"></textarea>
                     <button class="send-btn-text" id="sendBtn" onclick="sendMessage()">Send</button>
                 </div>
@@ -431,6 +430,8 @@
         const hostname = window.location.hostname || 'localhost';
         const protocol = window.location.protocol || 'http:';
         const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8082`;
+        const AUTH_BASE = `${protocol}//${hostname}:8081/authapp`;
+
         const IMAGE_BASE = `${protocol}//${hostname}:8083`;
         let user = null;
         let token = null;
@@ -1751,7 +1752,8 @@
 
             // Auto-resize
             this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
+            const newHeight = Math.min(this.scrollHeight, 120);
+            this.style.height = newHeight + 'px';
 
             fetch(`${CHAT_BASE}/api/conversations/${activeConversationId}/typing`, {
                 method: "POST",
@@ -1781,6 +1783,7 @@
             });
 
             input.value = "";
+            input.style.height = 'auto'; // Reset height after sending
         }
 
 
