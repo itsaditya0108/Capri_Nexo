@@ -43,7 +43,8 @@ public class MessageController {
                 Message message = messageService.sendMessage(
                                 conversationId,
                                 userId,
-                                request.getContent());
+                                request.getContent(),
+                                authHeader);
 
                 String senderName = "User";
                 try {
