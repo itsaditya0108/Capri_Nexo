@@ -5,7 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capri Nexo</title>
-    <link rel="stylesheet" href="css/dashboard.css?v=hero2">
+    <link rel="stylesheet" href="css/dashboard.css?v=hero3">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap"
+        rel="stylesheet">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </head>
@@ -132,6 +135,39 @@
                 transform: translateX(0);
             }
         }
+
+        /* GROUP CREATE MODAL STYLES */
+        .group-member-chip {
+            display: inline-flex;
+            align-items: center;
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 13px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        .group-member-chip ion-icon {
+            margin-left: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .group-member-chip ion-icon:hover {
+            color: #3730a3;
+        }
+
+        .selected-members-area {
+            min-height: 40px;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+        }
     </style>
 
     <!-- SIDEBAR (Desktop) -->
@@ -185,15 +221,31 @@
     <div class="main-content">
 
         <!-- GROUPCHAT VIEW (Renamed from Dashboard) -->
-        <div id="view-dashboard" class="view-container">
+        <div id="view-dashboard" class="view-container"
+            style="display: flex; flex-direction: column; padding: 0; height: 100vh; max-height: 100vh; overflow: hidden;">
 
-            <div id="groupList" class="conversation-list"></div>
+            <div class="sidebar-header"
+                style="padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <h2 style="margin: 0; font-size: 20px;">Groups</h2>
+                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 13px;"
+                    onclick="openCreateGroupModal()">
+                    + New Group
+                </button>
+            </div>
 
-            <!-- HERO QUOTES SECTION -->
-            <div id="dashboardHero" class="dashboard-hero">
-                <p class="hero-line-1">Capture every moment.</p>
-                <p class="hero-line-2">Auth and real-time chat secured first.</p>
-                <p class="hero-line-3">Image gallery is coming next...</p>
+            <!-- SCROLLABLE CONTENT (Groups + Hero) -->
+            <div id="groupsScrollContainer" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
+
+                <!-- Group List Container (Auto height) -->
+                <div id="groupList" class="conversation-list" style="flex-shrink: 0;"></div>
+
+                <!-- HERO QUOTES SECTION (Follows content, Centered) -->
+                <div id="dashboardHero" class="dashboard-hero"
+                    style="flex-shrink: 0; margin-top: 40px; margin-bottom: 40px; text-align: center; width: 100%;">
+                    <p class="hero-line-1">Capture every moment.</p>
+                    <p class="hero-line-2">Auth and real-time chat secured first.</p>
+                    <p class="hero-line-3">Image gallery is coming next...</p>
+                </div>
             </div>
         </div>
 
@@ -417,6 +469,54 @@
                     style="width: 120px; height: 120px; border-radius: 50%; background: #d1d7db; display: flex; align-items: center; justify-content: center;">
                     <ion-icon name="person-outline" style="font-size: 60px; color: #8e9297;"></ion-icon>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE GROUP MODAL -->
+    <div id="createGroupModal" class="hidden modal">
+        <div class="modal-backdrop" onclick="closeCreateGroupModal()"></div>
+        <div class="modal-content"
+            style="background: white; width: 100%; max-width: 500px; border-radius: 12px; padding: 24px; position: relative; max-height: 90vh; overflow-y: auto;">
+            <h2 style="margin-top: 0; margin-bottom: 20px;">Create New Group</h2>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 500;">Group Name <span
+                        style="color: red;">*</span></label>
+                <input type="text" id="newGroupName" class="form-input" placeholder="e.g. Weekend Trip"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 500;">Description</label>
+                <textarea id="newGroupDesc" class="form-input" placeholder="What's this group about?" rows="2"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit;"></textarea>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 6px; font-weight: 500;">Add Members <span
+                        style="color: red;">*</span> <span
+                        style="font-size: 12px; color: #666; font-weight: normal;">(At least 1)</span></label>
+
+                <!-- Selected Members Display -->
+                <div id="selectedMembersArea" class="selected-members-area">
+                    <span style="color: #999; font-size: 13px; align-self: center;">No members selected</span>
+                </div>
+
+                <!-- Search Input -->
+                <input type="text" id="groupMemberSearchInput" class="form-input" placeholder="Search users by name..."
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"
+                    oninput="handleGroupCreationMemberSearch(event)">
+
+                <!-- Search Results -->
+                <div id="groupMemberSearchResults"
+                    style="max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-top: none; display: none;">
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px;">
+                <button class="btn btn-secondary" onclick="closeCreateGroupModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitCreateGroup()">Create Group</button>
             </div>
         </div>
     </div>
@@ -772,6 +872,161 @@
             } catch (e) {
                 console.error("Error adding member", e);
                 alert("Error adding member to group");
+            }
+        }
+
+
+        /* ================= CREATE GROUP FUNCTIONS ================= */
+        let selectedGroupMembers = [];
+
+        function openCreateGroupModal() {
+            document.getElementById("createGroupModal").classList.remove("hidden");
+            // Reset fields
+            document.getElementById("newGroupName").value = "";
+            document.getElementById("newGroupDesc").value = "";
+            document.getElementById("groupMemberSearchInput").value = "";
+            document.getElementById("groupMemberSearchResults").style.display = 'none';
+            selectedGroupMembers = [];
+            renderSelectedGroupMembers();
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById("createGroupModal").classList.add("hidden");
+        }
+
+        function renderSelectedGroupMembers() {
+            const container = document.getElementById("selectedMembersArea");
+            if (selectedGroupMembers.length === 0) {
+                container.innerHTML = '<span style="color: #999; font-size: 13px; align-self: center;">No members selected</span>';
+                return;
+            }
+
+            container.innerHTML = selectedGroupMembers.map(u => `
+                <div class="group-member-chip">
+                    ${u.name}
+                    <ion-icon name="close-circle" onclick="removeGroupCreationMember(${u.userId})"></ion-icon>
+                </div>
+            `).join("");
+        }
+
+        function removeGroupCreationMember(userId) {
+            selectedGroupMembers = selectedGroupMembers.filter(m => m.userId !== userId);
+            renderSelectedGroupMembers();
+        }
+
+        async function handleGroupCreationMemberSearch(e) {
+            const query = e.target.value.trim();
+            const resultsDiv = document.getElementById("groupMemberSearchResults");
+
+            if (!query) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div style="padding:10px; color:#666;">Searching...</div>';
+
+            try {
+                const res = await fetch(`${CHAT_BASE}/api/users/search?q=${encodeURIComponent(query)}`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (res.ok) {
+                    const users = await res.json();
+                    if (users.length === 0) {
+                        resultsDiv.innerHTML = '<div style="padding:10px; color:#666;">No users found</div>';
+                    } else {
+                        resultsDiv.innerHTML = users.map(u => {
+                            // Check if already selected or is self
+                            const isSelected = selectedGroupMembers.some(m => m.userId === u.userId);
+                            const isSelf = (user && user.id === u.userId); // Assuming 'user' global has id
+
+                            if (isSelf || isSelected) return ''; // Skip self or already selected
+
+                            return `
+                                <div style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;" 
+                                     onclick="addGroupCreationMember(${u.userId}, '${u.name.replace(/'/g, "\\'")}')"
+                                     onmouseover="this.style.background='#f9f9f9'" 
+                                     onmouseout="this.style.background='white'">
+                                    <div style="width: 32px; height: 32px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 10px;">
+                                        ${getInitials(u.name)}
+                                    </div>
+                                    <div style="font-weight: 500;">${u.name}</div>
+                                </div>
+                            `;
+                        }).join("");
+
+                        // If all results were filtered out
+                        if (resultsDiv.innerHTML.trim() === "") {
+                            resultsDiv.innerHTML = '<div style="padding:10px; color:#666;">User already selected</div>';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Search error", e);
+                resultsDiv.innerHTML = '<div style="padding:10px; color:red;">Error searching</div>';
+            }
+        }
+
+        function addGroupCreationMember(userId, name) {
+            if (!selectedGroupMembers.some(m => m.userId === userId)) {
+                selectedGroupMembers.push({ userId, name });
+                renderSelectedGroupMembers();
+            }
+            // Clear search
+            document.getElementById("groupMemberSearchInput").value = "";
+            document.getElementById("groupMemberSearchResults").style.display = 'none';
+        }
+
+        async function submitCreateGroup() {
+            const name = document.getElementById("newGroupName").value.trim();
+            const description = document.getElementById("newGroupDesc").value.trim();
+
+            if (!name) {
+                alert("Please enter a group name.");
+                return;
+            }
+
+            if (selectedGroupMembers.length === 0) {
+                alert("Please select at least one member.");
+                return;
+            }
+
+            const payload = {
+                name: name,
+                description: description,
+                memberIds: selectedGroupMembers.map(m => m.userId)
+            };
+
+            // Add creator ID if needed? usually backend handles creator from token.
+            // But let's verify if DTO expects creator in list. 
+            // Service says: `members = new HashSet(request.getMemberIds()); members.remove(creatorId); if empty -> error`
+            // So we just need to send the OTHER members.
+
+            try {
+                const res = await fetch(`${CHAT_BASE}/api/conversations/groups`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    closeCreateGroupModal();
+                    alert("Group created successfully!");
+                    loadGroups(); // Refresh list
+                    const data = await res.json();
+                    // Optionally open the new chat immediately
+                    if (data.conversationId) openChat(data.conversationId);
+                } else {
+                    const txt = await res.text();
+                    alert("Failed to create group: " + txt);
+                }
+            } catch (e) {
+                console.error("Create group error", e);
+                alert("Error creating group");
             }
         }
 
