@@ -1509,9 +1509,6 @@
             document.getElementById("chatHeaderName").textContent = groupName;
 
             // Open chat
-            // Open chat
-            openChat(conversationId);
-            // Open chat
             openChat(conversationId);
             updateChatHeaderAvatar(0, groupName); // Assuming groups don't have avatars yet, or passed differently
 
@@ -1606,7 +1603,7 @@
             const input = document.getElementById("messageInput");
             if (input) {
                 input.value = "";
-                input.style.height = 'auto'; // Reset height if auto-expanded
+                // height reset removed
                 input.focus();
             }
 
@@ -1833,7 +1830,10 @@
                             ${getInitials(u.name)}
                         </div>
                     </div>
-                    <div style="flex:1; font-weight:500; margin-left:10px;">${u.name}</div>
+                    <div style="flex:1; margin-left:10px;">
+                        <div style="font-weight:500;">${u.name}</div>
+                        <div style="font-size:11px; color:#666;">${u.email || u.phone || ""}</div>
+                    </div>
                     <button class="btn btn-primary" style="font-size:10px;padding:4px 8px;" onclick="addMemberToGroup(${u.userId})">Add</button>
                 `;
                 box.appendChild(div);
@@ -2005,10 +2005,7 @@
         document.getElementById("messageInput").addEventListener("input", function () {
             if (!activeConversationId) return;
 
-            // Auto-resize
-            this.style.height = 'auto';
-            const newHeight = Math.min(this.scrollHeight, 120);
-            this.style.height = newHeight + 'px';
+            // Auto-resize removed for stability
 
             fetch(`${CHAT_BASE}/api/conversations/${activeConversationId}/typing`, {
                 method: "POST",
@@ -2038,7 +2035,7 @@
             });
 
             input.value = "";
-            input.style.height = 'auto'; // Reset height after sending
+            // height reset removed
         }
 
 
@@ -2412,7 +2409,10 @@
                             ${(u.name || "U")[0].toUpperCase()}
                         </div>
                     </div>
-                    <div style="font-weight:500; margin-left:10px;">${u.name}</div>
+                    <div style="margin-left:10px;">
+                        <div style="font-weight:500;">${u.name}</div>
+                        <div style="font-size:11px; color:#666;">${u.email || u.phone || ""}</div>
+                    </div>
                 `;
 
                 div.onclick = () => startPrivateChat(u.userId);

@@ -35,7 +35,8 @@ public class UserSearchService {
                 .map(u -> new UserSearchResponse(
                         u.getId(),
                         u.getName(),
-                        u.getEmail()))
+                        u.getEmail(),
+                        u.getPhone()))
                 .toList();
     }
 
@@ -48,7 +49,8 @@ public class UserSearchService {
                 .map(u -> new UserSearchResponse(
                         u.getId(),
                         u.getName(),
-                        u.getEmail()))
+                        u.getEmail(),
+                        u.getPhone()))
                 .toList();
     }
 

@@ -22,18 +22,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByResetToken(String resetToken);
 
     @Query("""
-    SELECT u
-    FROM User u
-    WHERE (
-        LOWER(u.name) LIKE CONCAT(:q, '%')
-        OR u.phone LIKE CONCAT(:q, '%')
-        OR LOWER(u.email) LIKE CONCAT(:q, '%')
-    )
-    AND u.status.id = '01'
-""")
+                SELECT u
+                FROM User u
+                WHERE (
+                    LOWER(u.name) LIKE CONCAT(:q, '%')
+                    OR u.phone LIKE CONCAT('%', :q, '%')
+                    OR LOWER(u.email) LIKE CONCAT(:q, '%')
+                )
+                AND u.status.id = '01'
+            """)
     List<User> searchUsers(
             @Param("q") String query,
-            Pageable pageable
-    );
+            Pageable pageable);
 
 }
