@@ -37,17 +37,22 @@ public class AuthController {
 
                 log.info("API | REGISTER | START | email={}", request.getEmail());
 
-                User user = userService.register(request);
+                try {
+                        User user = userService.register(request);
 
-                log.info("API | REGISTER | SUCCESS | userId={}", user.getId());
+                        log.info("API | REGISTER | SUCCESS | userId={}", user.getId());
 
-                return ResponseEntity.ok(
-                                new RegisterResponse(
-                                                user.getId(),
-                                                user.getName(),
-                                                user.getEmail(),
-                                                user.isEmailVerified(),
-                                                "Registration successful. OTP sent to email."));
+                        return ResponseEntity.ok(
+                                        new RegisterResponse(
+                                                        user.getId(),
+                                                        user.getName(),
+                                                        user.getEmail(),
+                                                        user.isEmailVerified(),
+                                                        "Registration successful. OTP sent to email."));
+                } catch (Exception e) {
+                        log.error("API | REGISTER | ERROR", e);
+                        throw new com.example.authapp.exception.ApiException("REGISTRATION_FAILED");
+                }
         }
 
         /* ================= LOGIN ================= */

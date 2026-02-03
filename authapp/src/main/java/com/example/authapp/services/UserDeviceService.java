@@ -5,7 +5,7 @@ import com.example.authapp.entity.User;
 import com.example.authapp.entity.UserDevice;
 import com.example.authapp.repository.UserDeviceRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
+
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -19,7 +19,7 @@ public class UserDeviceService {
         this.userDeviceRepository = userDeviceRepository;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public UserDevice saveOrUpdateUserDevice(User user, DeviceContextDto deviceContext) {
         if (deviceContext == null || deviceContext.getDeviceId() == null)
             return null;
