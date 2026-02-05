@@ -223,4 +223,11 @@ public class GlobalExceptionHandler {
                 return ResponseEntity.status(500).body(
                                 new ApiErrorResponse(500, "DATABASE_ERROR", message));
         }
+
+        @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+        public ResponseEntity<ApiErrorResponse> handleMaxSizeException(
+                        org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+                return ResponseEntity.status(413).body(
+                                new ApiErrorResponse(413, "PAYLOAD_TOO_LARGE", "Uploaded file is too large."));
+        }
 }

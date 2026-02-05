@@ -80,6 +80,42 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(253, 29, 29, 0.15);
 }
 
+.input-error {
+  border-color: #ed4956 !important;
+  background: #fff8f8;
+}
+
+.input-success {
+  border-color: #2ecc71 !important;
+  background: #f8fff8;
+}
+
+.field-error-msg {
+  color: #ed4956;
+  font-size: 12px;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  text-align: left;
+  padding-left: 4px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: slideDownError 0.2s ease-out;
+}
+
+@keyframes slideDownError {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .password-container {
   position: relative;
   display: flex;

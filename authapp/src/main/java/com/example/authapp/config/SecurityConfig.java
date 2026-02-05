@@ -48,6 +48,8 @@ public class SecurityConfig {
                                                 .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/images/**",
                                                                 "/favicon.ico", "/error")
                                                 .permitAll()
+                                                .requestMatchers("/api/images/**").permitAll() // Pass-through to Image
+                                                                                               // Service
                                                 .requestMatchers("/actuator/**").permitAll()
                                                 .anyRequest().authenticated())
 

@@ -19,14 +19,6 @@
             <input id="phone" placeholder="Mobile Number" maxlength="10" required />
             <div class="password-container">
                 <input id="password" type="password" placeholder="Password" required />
-                <span id="togglePassword" class="password-toggle" title="Show Password">
-                    <svg viewBox="0 0 24 24">
-                        <path
-                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 4.5z">
-                        </path>
-                        <line x1="1" y1="1" x2="23" y2="23"></line>
-                    </svg>
-                </span>
             </div>
             <div class="password-container">
                 <input id="confirmPassword" type="password" placeholder="Re-enter Password" required />
@@ -62,7 +54,7 @@
         const emailInput = document.getElementById("email");
         const phoneInput = document.getElementById("phone");
         const passwordInput = document.getElementById("password");
-        const togglePassword = document.getElementById("togglePassword");
+
         const confirmPasswordInput = document.getElementById("confirmPassword");
         const toggleConfirmPassword = document.getElementById("toggleConfirmPassword");
 
@@ -116,13 +108,121 @@
 
 
         // =======================
-        // INPUT HARDENING
+        // REAL-TIME VALIDATION
         // =======================
 
-        // Phone: numeric only
+        function setValidationStatus(input, isValid, errorMessage) {
+            // Remove existing status
+            input.classList.remove("input-error", "input-success");
+            const nextSibling = input.nextElementSibling;
+            if (nextSibling && nextSibling.classList.contains("field-error-msg")) {
+                nextSibling.remove();
+            }
+            if (input.parentElement.classList.contains("password-container")) {
+                const parentNext = input.parentElement.nextElementSibling;
+                if (parentNext && parentNext.classList.contains("field-error-msg")) {
+                    parentNext.remove();
+                }
+            }
+
+            if (isValid) {
+                input.classList.add("input-success");
+            } else {
+                if (errorMessage) {
+                    input.classList.add("input-error");
+                    const errorDiv = document.createElement("div");
+                    errorDiv.className = "field-error-msg";
+                    errorDiv.innerHTML = `<svg style="width:12px;height:12px;fill:currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg> ${errorMessage}`;
+
+                    if (input.parentElement.classList.contains("password-container")) {
+                        input.parentElement.insertAdjacentElement('afterend', errorDiv);
+                    } else {
+                        input.insertAdjacentElement('afterend', errorDiv);
+                    }
+                }
+            }
+        }
+
+        nameInput.addEventListener("input", function () {
+            const val = this.value.trim();
+            if (val.length === 0) {
+                setValidationStatus(this, false, null); // Clear
+            } else if (!/^[A-Za-z ]+$/.test(val)) {
+                setValidationStatus(this, false, "Name must contain only letters");
+            } else if (val.length < 3) {
+                setValidationStatus(this, false, null);
+            } else {
+                setValidationStatus(this, true);
+            }
+        });
+
+        nameInput.addEventListener("blur", function () {
+            const val = this.value.trim();
+            if (val.length > 0 && val.length < 3) {
+                setValidationStatus(this, false, "Name must be at least 3 characters");
+            }
+        });
+
+        emailInput.addEventListener("input", function () {
+            const val = this.value.trim();
+            if (val.length === 0) {
+                setValidationStatus(this, false, null);
+            } else if (isValidEmail(val)) {
+                setValidationStatus(this, true);
+            } else {
+                setValidationStatus(this, false, null);
+            }
+        });
+
+        emailInput.addEventListener("blur", function () {
+            const val = this.value.trim();
+            if (val.length > 0 && !isValidEmail(val)) {
+                setValidationStatus(this, false, "Email must be a valid gmail.com address");
+            }
+        });
+
         phoneInput.addEventListener("input", function () {
             this.value = this.value.replace(/\D/g, "");
+            const val = this.value;
+            if (val.length === 10 && isValidPhone(val)) {
+                setValidationStatus(this, true);
+            } else {
+                setValidationStatus(this, false, null);
+            }
         });
+
+        phoneInput.addEventListener("blur", function () {
+            const val = this.value;
+            if (val.length > 0 && (val.length !== 10 || !isValidPhone(val))) {
+                setValidationStatus(this, false, "Enter a valid 10-digit mobile number");
+            }
+        });
+
+        passwordInput.addEventListener("input", function () {
+            const val = this.value;
+            if (!val) {
+                setValidationStatus(this, false, null);
+                return;
+            }
+            const error = validatePassword(val);
+            if (!error) {
+                setValidationStatus(this, true);
+            } else {
+                setValidationStatus(this, false, error);
+            }
+        });
+
+        confirmPasswordInput.addEventListener("input", function () {
+            const val = this.value;
+            if (!val) {
+                setValidationStatus(this, false, null);
+            } else if (val !== passwordInput.value) {
+                setValidationStatus(this, false, "Passwords do not match");
+            } else {
+                setValidationStatus(this, true);
+            }
+        });
+
 
         // =======================
         // PASSWORD TOGGLE
@@ -142,11 +242,7 @@
             </svg>
         `;
 
-        togglePassword.addEventListener("click", function () {
-            const isHidden = passwordInput.type === "password";
-            passwordInput.type = isHidden ? "text" : "password";
-            this.innerHTML = isHidden ? eyeIcon : eyeSlashIcon;
-        });
+
 
         toggleConfirmPassword.addEventListener("click", function () {
             const isHidden = confirmPasswordInput.type === "password";
@@ -210,62 +306,46 @@
 
         registerForm.addEventListener("submit", async function (e) {
             e.preventDefault();
-            result.innerText = "";
 
             const name = nameInput.value.trim();
             const email = emailInput.value.trim();
             const phone = phoneInput.value.trim();
             const password = passwordInput.value;
-
-            // ---- Name Validation
-            if (!/^[A-Za-z ]+$/.test(name)) {
-                result.innerText = "Name must contain only letters";
-                return;
-            }
-
-            if (name.length < 3) {
-                result.innerText = "Name must be at least 3 characters";
-                return;
-            }
-
-            if (name.length > 21) {
-                result.innerText = "Name must be maximum 20 characters";
-                return;
-            }
-
-            // ---- Email Validation
-            if (!isValidEmail(email)) {
-                result.innerText = "Email must be a valid gmail.com address";
-                return;
-            }
-
-            // ---- Phone Validation
-            if (!isValidPhone(phone)) {
-                result.innerText = "Enter a valid 10-digit mobile number";
-                return;
-            }
-
-            // ---- Password Validation (PRODUCTION)
-            const passwordError = validatePassword(password);
-            if (passwordError) {
-                result.innerText = passwordError;
-                return;
-            }
-
-            // ---- Confirm Password Validation
             const confirmPassword = confirmPasswordInput.value;
-            if (password !== confirmPassword) {
-                result.innerText = "Passwords do not match";
-                return;
+
+            let hasError = false;
+
+            // Final check on submit
+            if (name.length < 3 || !/^[A-Za-z ]+$/.test(name)) {
+                setValidationStatus(nameInput, false, "Invalid Name");
+                hasError = true;
             }
+            if (!isValidEmail(email)) {
+                setValidationStatus(emailInput, false, "Invalid Email");
+                hasError = true;
+            }
+            if (!isValidPhone(phone)) {
+                setValidationStatus(phoneInput, false, "Invalid Phone");
+                hasError = true;
+            }
+            const passErr = validatePassword(password);
+            if (passErr) {
+                setValidationStatus(passwordInput, false, passErr);
+                hasError = true;
+            }
+            if (password !== confirmPassword) {
+                setValidationStatus(confirmPasswordInput, false, "Passwords do not match");
+                hasError = true;
+            }
+
+            if (hasError) return;
 
             // ---- Prevent double submit
             registerBtn.disabled = true;
-            result.innerText = "Gathering device info...";
+            registerBtn.innerText = "Processing...";
 
             try {
                 const deviceContext = await buildDeviceContext();
-                result.innerText = "Creating account...";
 
                 const response = await fetch("api/auth/register", {
                     method: "POST",
@@ -284,7 +364,15 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    result.innerText = data.message || "Registration failed";
+                    if (data.errorCode === "EMAIL_EXISTS") {
+                        setValidationStatus(emailInput, false, "Email is already registered");
+                    } else if (data.errorCode === "PHONE_ALREADY_EXISTS") {
+                        setValidationStatus(phoneInput, false, "Phone number is already registered");
+                    } else if (data.errorCode === "REGISTRATION_FAILED") {
+                        result.innerHTML = `<span class="error">Registration failed. Please try again.</span>`;
+                    } else {
+                        result.innerHTML = `<span class="error">${data.errorMessage || "Registration failed"}</span>`;
+                    }
                     return;
                 }
 
@@ -293,11 +381,10 @@
 
             } catch (error) {
                 console.error(error);
-                result.innerText = "Network error. Please try again.";
+                result.innerHTML = `<span class="error">Network error. Please try again.</span>`;
             } finally {
-                setTimeout(() => {
-                    registerBtn.disabled = false;
-                }, 1500);
+                registerBtn.disabled = false;
+                registerBtn.innerText = "Register";
             }
         });
     </script>

@@ -2,6 +2,7 @@ package com.example.authapp.controller;
 
 import com.example.authapp.dto.*;
 import com.example.authapp.entity.User;
+import com.example.authapp.exception.ApiException;
 import com.example.authapp.services.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,9 +50,11 @@ public class AuthController {
                                                         user.getEmail(),
                                                         user.isEmailVerified(),
                                                         "Registration successful. OTP sent to email."));
+                } catch (ApiException e) {
+                        throw e; // Let GlobalExceptionHandler handle specific API errors
                 } catch (Exception e) {
                         log.error("API | REGISTER | ERROR", e);
-                        throw new com.example.authapp.exception.ApiException("REGISTRATION_FAILED");
+                        throw new ApiException("REGISTRATION_FAILED");
                 }
         }
 

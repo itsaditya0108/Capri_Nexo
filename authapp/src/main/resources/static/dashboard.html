@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capri Nexo</title>
-    <link rel="stylesheet" href="css/dashboard.css?v=hero3">
+    <link rel="stylesheet" href="css/dashboard.css?v=hero4">
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap"
         rel="stylesheet">
@@ -38,6 +38,18 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
+        }
+
+        .message-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-top: 5px;
+            /* Constrain desktop images */
+            max-width: 300px;
+            max-height: 400px;
+            object-fit: cover;
+            cursor: pointer;
         }
 
         .modal img {
@@ -359,6 +371,12 @@
                 </div>
 
                 <div class="chat-input-area hidden" id="inputArea">
+                    <input type="file" id="chatImageInput" style="display: none;" accept="image/*"
+                        onchange="handleChatImageSelect()">
+                    <button class="icon-btn" onclick="document.getElementById('chatImageInput').click()"
+                        style="background:none; border:none; cursor:pointer; font-size:24px; color:#0288d1; margin-right:8px; display:flex; align-items:center;">
+                        <ion-icon name="image-outline"></ion-icon>
+                    </button>
                     <textarea id="messageInput" class="message-input" placeholder="Message..." rows="1"
                         onkeydown="handleChatInputKey(event)"></textarea>
                     <button class="send-btn-text" id="sendBtn" onclick="sendMessage()">Send</button>
@@ -526,12 +544,13 @@
         // Allow overriding via query param for testing ?chatUrl=...
         const urlParams = new URLSearchParams(window.location.search);
 
-        // Dynamic CHAT_BASE that works on localhost AND network (192.168.x.x)
+        // Services accessed directly on their specific ports (Gateway bypassed)
         const hostname = window.location.hostname || 'localhost';
         const protocol = window.location.protocol || 'http:';
-        const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8083`;
-        const AUTH_BASE = `${protocol}//${hostname}:8082/authapp`;
 
+        // Direct Service Ports (No Gateway)
+        const AUTH_BASE = `${protocol}//${hostname}:8082`;
+        const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8083`;
         const IMAGE_BASE = `${protocol}//${hostname}:8084`;
         let user = null;
         let token = null;
@@ -968,16 +987,6 @@
             }
         }
 
-        function addGroupCreationMember(userId, name) {
-            if (!selectedGroupMembers.some(m => m.userId === userId)) {
-                selectedGroupMembers.push({ userId, name });
-                renderSelectedGroupMembers();
-            }
-            // Clear search
-            document.getElementById("groupMemberSearchInput").value = "";
-            document.getElementById("groupMemberSearchResults").style.display = 'none';
-        }
-
         async function submitCreateGroup() {
             const name = document.getElementById("newGroupName").value.trim();
             const description = document.getElementById("newGroupDesc").value.trim();
@@ -992,43 +1001,46 @@
                 return;
             }
 
-            const payload = {
-                name: name,
-                description: description,
-                memberIds: selectedGroupMembers.map(m => m.userId)
-            };
-
-            // Add creator ID if needed? usually backend handles creator from token.
-            // But let's verify if DTO expects creator in list. 
-            // Service says: `members = new HashSet(request.getMemberIds()); members.remove(creatorId); if empty -> error`
-            // So we just need to send the OTHER members.
-
             try {
-                const res = await fetch(`${CHAT_BASE}/api/conversations/groups`, {
+                const memberIds = selectedGroupMembers.map(m => m.userId);
+
+                const res = await fetch(`${CHAT_BASE}/api/conversations/group`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "Authorization": "Bearer " + token
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        name: name,
+                        memberIds: memberIds
+                        // description ignored by backend for now if not in DTO
+                    })
                 });
 
-                if (res.ok) {
-                    closeCreateGroupModal();
-                    alert("Group created successfully!");
-                    loadGroups(); // Refresh list
-                    const data = await res.json();
-                    // Optionally open the new chat immediately
-                    if (data.conversationId) openChat(data.conversationId);
-                } else {
-                    const txt = await res.text();
-                    alert("Failed to create group: " + txt);
+                if (!res.ok) {
+                    alert("Failed to create group");
+                    return;
                 }
+
+                closeCreateGroupModal();
+                fetchInbox();
+
             } catch (e) {
                 console.error("Create group error", e);
                 alert("Error creating group");
             }
         }
+
+        function addGroupCreationMember(userId, name) {
+            if (!selectedGroupMembers.some(m => m.userId === userId)) {
+                selectedGroupMembers.push({ userId, name });
+                renderSelectedGroupMembers();
+            }
+            // Clear search
+            document.getElementById("groupMemberSearchInput").value = "";
+            document.getElementById("groupMemberSearchResults").style.display = 'none';
+        }
+
 
 
         /* ================= LOGOUT ================= */
@@ -1440,7 +1452,7 @@
             <div class="conv-info">
                 <div class="conv-name">${title}</div>
                 <div class="conv-preview">
-                    ${c.lastMessage || "No messages"}
+                    ${c.lastMessageType === 'IMAGE' ? 'Sent an image' : (c.lastMessage || "No messages")}
                 </div>
             </div>
             ${isUnread
@@ -1585,18 +1597,56 @@
         }
 
         async function loadImages() {
-            const res = await fetch(`${IMAGE_BASE}/api/images?size=50`, {
-                headers: {
-                    "Authorization": "Bearer " + token
-                }
-            });
+            // FILTER: Show only personal images in the gallery
+            try {
+                const res = await fetch(`${IMAGE_BASE}/api/images?type=personal&size=50`, {
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    }
+                });
 
-            const page = await res.json();
-            renderImages(page.content);
+                if (res.ok) {
+                    const page = await res.json();
+                    renderImages(page.content);
+                }
+            } catch (e) {
+                console.error("Load images error", e);
+            }
+        }
+
+        function renderImages(images) {
+            const grid = document.getElementById("imageGrid");
+            grid.innerHTML = "";
+
+            if (!images || images.length === 0) {
+                grid.innerHTML = "<p style='color:#888; grid-column:1/-1; text-align:center;'>No images found</p>";
+                return;
+            }
+
+            images.forEach(img => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "image-wrapper";
+
+                const el = document.createElement("img");
+                el.src = `${IMAGE_BASE}/api/images/${img.id}/thumbnail?token=${encodeURIComponent(token)}`;
+                el.onclick = () => openImageModal(img.id);
+
+                const trash = document.createElement("span");
+                trash.className = "trash-icon";
+                trash.innerHTML = "<ion-icon name='trash-outline'></ion-icon>";
+                trash.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteImage(img.id);
+                };
+
+                wrapper.appendChild(el);
+                wrapper.appendChild(trash);
+                grid.appendChild(wrapper);
+            });
         }
 
 
-        async function openChat(id) {
+        async function openChat(id, forcedName = null, forcedUserId = null, isGroup = false) {
             activeConversationId = id;
 
             document.getElementById("inputArea").classList.remove("hidden");
@@ -1619,7 +1669,7 @@
             }
 
             const convo = currentInbox.find(c => c.conversationId === id);
-            activeConversationType = convo ? convo.type : null;
+            activeConversationType = convo ? convo.type : (isGroup ? "GROUP" : "PRIVATE");
 
             if (convo) {
                 if (convo.type === "PRIVATE" && convo.otherUserName) {
@@ -1635,6 +1685,17 @@
                     updateChatHeaderAvatar(0, convo.groupName, true); // true = isGroup
 
                     fetchGroupDetails();
+                }
+            } else if (forcedName) {
+                // FALLBACK when convo is not in inbox yet (e.g. new chat)
+                document.getElementById("chatHeaderName").textContent = forcedName;
+                if (isGroup) {
+                    updateChatHeaderAvatar(0, forcedName, true);
+                    fetchGroupDetails();
+                } else {
+                    updateChatHeaderAvatar(forcedUserId, forcedName);
+                    document.getElementById("chatHeaderMembers").textContent = "";
+                    document.getElementById("addMemberBtn").classList.add("hidden");
                 }
             }
 
@@ -1659,6 +1720,9 @@
             lastDate = null; // Reset date tracking
             msgs.reverse().forEach(renderMessage);
             scrollToBottom();
+            // Robust scroll ensuring layout is complete
+            setTimeout(scrollToBottom, 100);
+            setTimeout(scrollToBottom, 300);
 
             /* ===== SSE ===== */
             eventSource = new EventSource(
@@ -1918,7 +1982,60 @@
                 nameEl.innerText = msg.senderName;
                 bubble.appendChild(nameEl);
             }
-            bubble.appendChild(document.createTextNode(msg.content));
+
+            // check message type
+            if (msg.messageType === 'IMAGE') {
+                console.log("DEBUG: Rendering Image Message:", msg);
+                const imgEl = document.createElement("img");
+                // Prepend IMAGE_BASE if url is relative and exists
+                let src = msg.thumbnailUrl || "";
+
+                // FALLBACK: If no thumbnail URL but we have an image ID, construct it
+                if (!src && msg.imageId) {
+                    src = `/api/images/${msg.imageId}/thumbnail`;
+                }
+
+                if (src && !src.startsWith("http")) {
+                    // remove leading slash if base has trailing slash (unlikely here but safe)
+                    if (src.startsWith("/")) src = src.substring(1);
+                    src = `${IMAGE_BASE}/${src}`;
+                }
+
+                if (src) {
+                    imgEl.src = `${src}?token=${encodeURIComponent(token)}`;
+                } else {
+                    // Fallback or placeholder
+                    imgEl.alt = "Image unavailable";
+                    imgEl.src = "https://placehold.co/200x200?text=Unavailable"; // Temporary visual fallback
+                }
+
+                imgEl.style.maxWidth = "200px";
+                imgEl.style.maxHeight = "200px";
+                imgEl.style.borderRadius = "8px";
+                imgEl.style.cursor = "pointer";
+                imgEl.style.display = "block";
+
+                // SCROLL FIX: Scroll when image loads
+                imgEl.onload = () => scrollToBottom();
+
+                // On click, view full size (reuse openImageModal but need a way to pass downloadUrl logic or reuse logic)
+                // msg.imageId should be available if we added it to response, or we parse from url
+                // Ideally backend sends imageId. Let's assume msg.imageId exists.
+                if (msg.imageId) {
+                    imgEl.onclick = () => openImageModal(msg.imageId);
+                }
+
+                bubble.appendChild(imgEl);
+
+                if (msg.content) {
+                    const caption = document.createElement("div");
+                    caption.innerText = msg.content;
+                    caption.style.marginTop = "4px";
+                    bubble.appendChild(caption);
+                }
+            } else {
+                bubble.appendChild(document.createTextNode(msg.content));
+            }
 
             // Avatar for incoming messages
             if (!isMe) {
@@ -2031,60 +2148,114 @@
                     "Content-Type": "application/json",
                     "Authorization": "Bearer " + token
                 },
-                body: JSON.stringify({ content: text })
+                body: JSON.stringify({
+                    content: text,
+                    type: "TEXT"
+                })
             });
 
             input.value = "";
-            // height reset removed
         }
 
+        async function handleChatImageSelect() {
+            const input = document.getElementById("chatImageInput");
+            if (!input.files || input.files.length === 0) return;
 
-        async function loadImages() {
+            const file = input.files[0];
+            input.value = ""; // reset
+
+            // 0. SHOW DUMMY "SENDING..." MESSAGE
+            const tempId = "temp-" + Date.now();
+            const bubble = document.createElement("div");
+            bubble.id = tempId;
+            bubble.className = "message-bubble";
+
+            // Image Preview
+            const imgPreview = document.createElement("img");
+            imgPreview.src = URL.createObjectURL(file);
+            imgPreview.style.maxWidth = "200px";
+            imgPreview.style.maxHeight = "200px";
+            imgPreview.style.borderRadius = "8px";
+            imgPreview.style.display = "block";
+            imgPreview.style.opacity = "0.7"; // Show it's pending
+
+            bubble.appendChild(imgPreview);
+
+            const caption = document.createElement("div");
+            caption.innerText = "Sending...";
+            caption.style.fontSize = "11px";
+            caption.style.color = "#eee";
+            caption.style.marginTop = "4px";
+            bubble.appendChild(caption);
+
+            const row = document.createElement("div");
+            row.className = "message-row right"; // FIX: Use 'right' instead of 'me'
+            row.appendChild(bubble);
+            document.getElementById("messageList").appendChild(row);
+            scrollToBottom();
+
             try {
-                const res = await fetch(`${IMAGE_BASE}/api/images?size=50`, {
-                    headers: {
-                        "Authorization": "Bearer " + token
-                    }
+                // 1. Upload to Image Service
+                const formData = new FormData();
+                formData.append("file", file);
+
+                // Ensure type=chat is sent!
+                const uploadRes = await fetch(`${IMAGE_BASE}/api/images?type=chat`, {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + token },
+                    body: formData
                 });
 
-                if (!res.ok) {
-                    console.error("Failed to load images", res.status);
+                if (!uploadRes.ok) {
+                    let msg = "Failed to upload image";
+                    try {
+                        const err = await uploadRes.json();
+                        if (err.message) msg = err.message;
+                    } catch (e) {
+                        msg = await uploadRes.text();
+                    }
+                    // Show error in the bubble
+                    bubble.style.background = "#fee2e2";
+                    bubble.style.color = "#dc2626";
+                    bubble.innerHTML = `Error: ${msg}`;
+                    setTimeout(() => row.remove(), 3000);
                     return;
                 }
 
-                const page = await res.json();
-                renderImages(page.content);
+                const imageData = await uploadRes.json();
+                const imageId = imageData.id;
+
+                // 2. Send Message with Image ID
+                await fetch(`${CHAT_BASE}/api/conversations/${activeConversationId}/messages`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + token
+                    },
+                    body: JSON.stringify({
+                        type: "IMAGE",
+                        imageId: imageId,
+                        content: "" // caption
+                    })
+                });
+
+                // Success! Remove temp bubble (real message comes via SSE)
+                row.remove();
 
             } catch (e) {
-                console.error("Image load error", e);
+                console.error("Image send error", e);
+                bubble.style.background = "#fee2e2";
+                bubble.style.color = "#dc2626";
+                bubble.innerHTML = `Failed to send`;
+                setTimeout(() => row.remove(), 3000);
             }
         }
 
-        function renderImages(images) {
-            const grid = document.getElementById("imageGrid");
-            grid.innerHTML = "";
 
-            images.forEach(img => {
-                const wrapper = document.createElement("div");
-                wrapper.className = "image-wrapper";
 
-                const el = document.createElement("img");
-                el.src = `${IMAGE_BASE}/api/images/${img.id}/thumbnail?token=${encodeURIComponent(token)}`;
-                el.onclick = () => openImageModal(img.id);
 
-                const trash = document.createElement("span");
-                trash.className = "trash-icon";
-                trash.innerHTML = "<ion-icon name='trash-outline'></ion-icon>";
-                trash.onclick = (e) => {
-                    e.stopPropagation();
-                    deleteImage(img.id);
-                };
 
-                wrapper.appendChild(el);
-                wrapper.appendChild(trash);
-                grid.appendChild(wrapper);
-            });
-        }
+
 
         function openImageModal(imageId) {
             const modal = document.getElementById("imageModal");
@@ -2352,6 +2523,7 @@
             }
         }
 
+
         /* ================= NEW CHAT ================= */
 
         let searchTimeout;
@@ -2396,6 +2568,7 @@
                 return;
             }
 
+
             users.forEach(u => {
                 const div = document.createElement("div");
                 div.className = "conversation-item";
@@ -2415,14 +2588,14 @@
                     </div>
                 `;
 
-                div.onclick = () => startPrivateChat(u.userId);
+                div.onclick = () => startPrivateChat(u.userId, u.name);
 
                 box.appendChild(div);
             });
         }
 
         // Create or open private chat
-        async function startPrivateChat(userId) {
+        async function startPrivateChat(userId, userName) {
             try {
                 const res = await fetch(`${CHAT_BASE}/api/conversations`, {
                     method: "POST",
@@ -2447,7 +2620,7 @@
                 document.getElementById("userSearchInput").value = "";
                 document.getElementById("newChatBox").classList.add("hidden");
 
-                openChat(data.conversationId);
+                openChat(data.conversationId, userName, userId);
 
             } catch (e) {
                 console.error("Create chat error", e);

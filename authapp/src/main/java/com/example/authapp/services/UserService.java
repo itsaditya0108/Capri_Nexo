@@ -418,10 +418,12 @@ public class UserService {
         otp.setVerified(true);
         otpRepository.save(otp);
 
-        // 2️⃣ Trust device (USING EXISTING METHOD)
-        UserDevice device = userDeviceRepository
-                .findByUserAndDeviceId(user, request.getDeviceId())
-                .orElseThrow(() -> new ApiException("DEVICE_NOT_FOUND"));
+        // 2️⃣ Trust device (ROBUST: Re-create if missing)
+        UserDevice device = userDeviceService.saveOrUpdateUserDevice(user, request.getDeviceContext());
+
+        if (device == null) {
+            throw new ApiException("DEVICE_NOT_FOUND");
+        }
 
         device.setDeviceTrusted(true);
         userDeviceRepository.save(device);

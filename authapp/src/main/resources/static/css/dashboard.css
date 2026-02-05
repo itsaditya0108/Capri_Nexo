@@ -575,13 +575,15 @@ h2 {
 
 /* CHAT INPUT AREA */
 .chat-input-area {
-    padding: 12px 16px;
+    padding: 10px 14px;
     display: flex;
-    align-items: flex-end;
-    /* Align to bottom for multiline */
-    gap: 12px;
+    align-items: center;
+    /* Center align for single line default */
+    gap: 10px;
     background: var(--bg-white);
     border-top: 1px solid var(--border-color);
+    min-height: 60px;
+    /* Ensure sufficient touch target but compact */
 }
 
 .message-input {
