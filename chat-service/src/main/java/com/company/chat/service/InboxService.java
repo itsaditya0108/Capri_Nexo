@@ -84,14 +84,12 @@ public class InboxService {
 
                 // Fetch group names
                 Map<Long, String> groupNamesById = new HashMap<>();
-            if (!groupIds.isEmpty()) {
-                groupRepository.findByConversationIdIn(groupIds)
-                        .forEach(g ->
-                                groupNamesById.put(g.getConversationId(), g.getName())
-                        );
-            }
+                if (!groupIds.isEmpty()) {
+                        groupRepository.findByConversationIdIn(groupIds)
+                                        .forEach(g -> groupNamesById.put(g.getConversationId(), g.getName()));
+                }
 
-            /* ================= 4️⃣ BUILD INBOX RESPONSE ================= */
+                /* ================= 4️⃣ BUILD INBOX RESPONSE ================= */
 
                 return conversations.stream()
                                 .map(conversation -> {
@@ -116,12 +114,11 @@ public class InboxService {
                                         if (conversation.getType() == ConversationType.PRIVATE) {
                                                 otherUserId = conversationToOtherUser
                                                                 .get(conversation.getConversationId());
-                                            otherUserName = userNamesById.getOrDefault(otherUserId, "Unknown");
+                                                otherUserName = userNamesById.getOrDefault(otherUserId, "Unknown");
                                         } else if (conversation.getType() == ConversationType.GROUP) {
-                                            groupName = groupNamesById.getOrDefault(
-                                                    conversation.getConversationId(),
-                                                    "Group"
-                                            );
+                                                groupName = groupNamesById.getOrDefault(
+                                                                conversation.getConversationId(),
+                                                                "Group");
                                         }
 
                                         return new InboxConversationResponse(
@@ -133,7 +130,8 @@ public class InboxService {
                                                         unread,
                                                         otherUserId,
                                                         otherUserName,
-                                                        groupName);
+                                                        groupName,
+                                                        lastMessage != null ? lastMessage.getMessageType() : null);
                                 })
                                 .toList();
         }

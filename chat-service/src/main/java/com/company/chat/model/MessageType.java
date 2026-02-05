@@ -1,4 +1,6 @@
 package com.company.chat.model;
 
-public class MessageType {
+public enum MessageType {
+    TEXT,
+    IMAGE
 }

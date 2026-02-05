@@ -2,7 +2,9 @@ package com.company.chat.service;
 
 import com.company.chat.controller.ConversationSseController;
 import com.company.chat.dto.MessageResponse;
+import com.company.chat.dto.SendMessageRequest;
 import com.company.chat.entity.*;
+import com.company.chat.model.MessageType;
 import com.company.chat.repository.ConversationMemberRepository;
 import com.company.chat.repository.ConversationRepository;
 import com.company.chat.repository.MessageReadRepository;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -25,6 +28,7 @@ public class MessageService {
         private final MessageRepository messageRepository;
         private final MessageReadRepository messageReadRepository;
         private final ConversationSseController sseController;
+        private final com.company.chat.client.ImageValidationClient imageValidationClient;
 
         private final com.company.chat.client.AuthUserClient authUserClient;
 
@@ -34,12 +38,14 @@ public class MessageService {
                         MessageRepository messageRepository,
                         MessageReadRepository messageReadRepository,
                         ConversationSseController sseController,
+                        com.company.chat.client.ImageValidationClient imageValidationClient,
                         com.company.chat.client.AuthUserClient authUserClient) {
                 this.conversationRepository = conversationRepository;
                 this.memberRepository = memberRepository;
                 this.messageRepository = messageRepository;
                 this.messageReadRepository = messageReadRepository;
                 this.sseController = sseController;
+                this.imageValidationClient = imageValidationClient;
                 this.authUserClient = authUserClient;
         }
 
@@ -47,55 +53,68 @@ public class MessageService {
         // SEND MESSAGE
         // ------------------------
         @Transactional
-        public Message sendMessage(Long conversationId, Long senderId, String content, String authHeader) {
+        public Message sendMessage(
+                        Long conversationId,
+                        Long senderId,
+                        SendMessageRequest request,
+                        String authHeader) {
 
                 Conversation conversation = conversationRepository.findById(conversationId)
-                                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+                                .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
-                memberRepository
+                // ✅ Membership validation
+                boolean isMember = memberRepository
                                 .findByConversation_ConversationIdAndUserId(conversationId, senderId)
-                                .orElseThrow(() -> new IllegalStateException("User not in conversation"));
+                                .isPresent();
+
+                if (!isMember) {
+                        throw new RuntimeException("Not a conversation member");
+                }
 
                 Message message = new Message();
                 message.setConversation(conversation);
                 message.setSenderId(senderId);
-                message.setContent(content);
+                message.setCreatedTimestamp(java.time.Instant.now());
 
-                Message saved = messageRepository.save(message);
+                // ---------------- TEXT MESSAGE ----------------
+                if (request.getType() == MessageType.TEXT) {
 
-                String senderName = "User";
-                try {
-                        var names = authUserClient.getUserNamesByIds(java.util.Set.of(senderId), authHeader);
-                        senderName = names.getOrDefault(senderId, "User");
-                } catch (Exception e) {
-                        // ignore
+                        if (request.getContent() == null || request.getContent().isBlank()) {
+                                throw new RuntimeException("Text message content required");
+                        }
+
+                        message.setMessageType(MessageType.TEXT);
+                        message.setContent(request.getContent());
+                        message.setImageId(null);
                 }
 
-                MessageResponse response = new MessageResponse(
-                                saved.getMessageId(),
-                                saved.getConversation().getConversationId(),
-                                saved.getSenderId(),
-                                saved.getContent(),
-                                saved.getCreatedTimestamp(),
-                                false,
-                                senderName);
+                // ---------------- IMAGE MESSAGE ----------------
+                else if (request.getType() == MessageType.IMAGE) {
 
-                TransactionSynchronizationManager.registerSynchronization(
-                                new TransactionSynchronization() {
-                                        @Override
-                                        public void afterCommit() {
-                                                try {
-                                                        sseController.sendMessageEvent(
-                                                                        saved.getConversation().getConversationId(),
-                                                                        response);
-                                                } catch (Exception e) {
-                                                        // NEVER fail message saving because of SSE
-                                                        // log.warn("SSE failed", e);
-                                                }
-                                        }
-                                });
+                        if (request.getImageId() == null) {
+                                throw new RuntimeException("ImageId required for image message");
+                        }
 
-                return saved;
+                        // 🔥 IMPORTANT — IMAGE VALIDATION (Via Client)
+                        boolean isValid = imageValidationClient.validateImage(
+                                        request.getImageId(),
+                                        senderId,
+                                        authHeader);
+
+                        if (!isValid) {
+                                throw new RuntimeException("Invalid image or access denied");
+                        }
+
+                        message.setMessageType(MessageType.IMAGE);
+                        message.setImageId(request.getImageId());
+                        message.setContent(request.getContent()); // caption optional
+                }
+
+                else {
+                        throw new RuntimeException("Unsupported message type");
+                }
+
+                return messageRepository.save(message);
         }
 
         // ------------------------
@@ -122,10 +141,9 @@ public class MessageService {
                 Message message = messageRepository.findById(messageId)
                                 .orElseThrow(() -> new IllegalArgumentException("Message not found"));
 
-                Long conversationId = message.getConversation().getConversationId();
-
                 memberRepository
-                                .findByConversation_ConversationIdAndUserId(conversationId, userId)
+                                .findByConversation_ConversationIdAndUserId(
+                                                message.getConversation().getConversationId(), userId)
                                 .orElseThrow(() -> new IllegalStateException("User not in conversation"));
 
                 // sender should not mark own message
@@ -150,7 +168,7 @@ public class MessageService {
                                         @Override
                                         public void afterCommit() {
                                                 sseController.sendReadReceipt(
-                                                                conversationId,
+                                                                message.getConversation().getConversationId(),
                                                                 messageId,
                                                                 userId);
                                         }

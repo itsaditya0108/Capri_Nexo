@@ -1,18 +1,14 @@
 package com.company.chat.entity;
 
-
+import com.company.chat.model.MessageType;
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.time.LocalDateTime;
+
 @Entity
-@Table(
-        name = "messages",
-        indexes = {
-                @Index(
-                        name = "idx_conversation_message",
-                        columnList = "conversation_id, message_id"
-                )
-        }
-)
+@Table(name = "messages", indexes = {
+        @Index(name = "idx_conversation_message", columnList = "conversation_id, message_id")
+})
 public class Message {
 
     @Id
@@ -20,7 +16,7 @@ public class Message {
     @Column(name = "message_id")
     private Long messageId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false)
     private Conversation conversation;
 
@@ -33,15 +29,12 @@ public class Message {
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted = false;
 
-    @Column(
-            name = "created_timestamp",
-            nullable = false,
-            updatable = false
-    )
+    @Column(name = "created_timestamp", nullable = false, updatable = false)
     private Instant createdTimestamp;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "message_type")
-    private String messageType;
+    private MessageType messageType;
 
     @Column(name = "image_id")
     private Long imageId;
@@ -51,7 +44,7 @@ public class Message {
         this.createdTimestamp = Instant.now();
     }
 
-//    getter / setter
+    // getter / setter
 
     public Long getMessageId() {
         return messageId;
@@ -101,11 +94,11 @@ public class Message {
         this.createdTimestamp = createdTimestamp;
     }
 
-    public String getMessageType() {
+    public MessageType getMessageType() {
         return messageType;
     }
 
-    public void setMessageType(String messageType) {
+    public void setMessageType(MessageType messageType) {
         this.messageType = messageType;
     }
 
@@ -117,5 +110,3 @@ public class Message {
         this.imageId = imageId;
     }
 }
-
-

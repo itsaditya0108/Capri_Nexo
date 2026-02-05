@@ -1,5 +1,7 @@
 package com.company.chat.dto;
 
+import com.company.chat.model.MessageType;
+
 import java.time.Instant;
 
 public class MessageResponse {
@@ -7,79 +9,105 @@ public class MessageResponse {
     private Long messageId;
     private Long conversationId;
     private Long senderId;
-    private String content;
-    private Instant createdTimestamp;
-
-    private boolean read;
     private String senderName;
 
-    public MessageResponse(
-            Long messageId,
-            Long conversationId,
-            Long senderId,
-            String content,
-            Instant createdTimestamp) {
-        this.messageId = messageId;
-        this.conversationId = conversationId;
-        this.senderId = senderId;
-        this.content = content;
-        this.createdTimestamp = createdTimestamp;
-        this.read = false;
-        this.senderName = "User " + senderId;
-    }
+    private MessageType messageType;   // TEXT / IMAGE
+    private String content;
+    private Long imageId;
 
-    public MessageResponse(
-            Long messageId,
-            Long conversationId,
-            Long senderId,
-            String content,
-            Instant createdTimestamp,
-            boolean read) {
-        this(messageId, conversationId, senderId, content, createdTimestamp, read, "User " + senderId);
-    }
+    private String thumbnailUrl;       // IMAGE only
+    private String downloadUrl;        // IMAGE only
 
-    public MessageResponse(
-            Long messageId,
-            Long conversationId,
-            Long senderId,
-            String content,
-            Instant createdTimestamp,
-            boolean read,
-            String senderName) {
-        this.messageId = messageId;
-        this.conversationId = conversationId;
-        this.senderId = senderId;
-        this.content = content;
-        this.createdTimestamp = createdTimestamp;
-        this.read = read;
-        this.senderName = senderName;
-    }
+    private Instant createdTimestamp;
+    private boolean read;
+
+    // ---------------- GETTERS & SETTERS ----------------
 
     public Long getMessageId() {
         return messageId;
+    }
+
+    public void setMessageId(Long messageId) {
+        this.messageId = messageId;
     }
 
     public Long getConversationId() {
         return conversationId;
     }
 
+    public void setConversationId(Long conversationId) {
+        this.conversationId = conversationId;
+    }
+
     public Long getSenderId() {
         return senderId;
+    }
+
+    public void setSenderId(Long senderId) {
+        this.senderId = senderId;
+    }
+
+    public String getSenderName() {
+        return senderName;
+    }
+
+    public void setSenderName(String senderName) {
+        this.senderName = senderName;
+    }
+
+    public MessageType getMessageType() {
+        return messageType;
+    }
+
+    public void setMessageType(MessageType messageType) {
+        this.messageType = messageType;
     }
 
     public String getContent() {
         return content;
     }
 
+    public void setContent(String content) {
+        this.content = content;
+    }
+
+    public Long getImageId() {
+        return imageId;
+    }
+
+    public void setImageId(Long imageId) {
+        this.imageId = imageId;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public String getDownloadUrl() {
+        return downloadUrl;
+    }
+
+    public void setDownloadUrl(String downloadUrl) {
+        this.downloadUrl = downloadUrl;
+    }
+
     public Instant getCreatedTimestamp() {
         return createdTimestamp;
+    }
+
+    public void setCreatedTimestamp(Instant createdTimestamp) {
+        this.createdTimestamp = createdTimestamp;
     }
 
     public boolean isRead() {
         return read;
     }
 
-    public String getSenderName() {
-        return senderName;
+    public void setRead(boolean read) {
+        this.read = read;
     }
 }

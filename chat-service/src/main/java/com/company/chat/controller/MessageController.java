@@ -3,6 +3,7 @@ package com.company.chat.controller;
 import com.company.chat.dto.MessageResponse;
 import com.company.chat.dto.SendMessageRequest;
 import com.company.chat.entity.Message;
+import com.company.chat.model.MessageType;
 import com.company.chat.repository.ConversationMemberRepository;
 import com.company.chat.service.MessageService;
 import jakarta.validation.Valid;
@@ -32,7 +33,6 @@ public class MessageController {
         }
 
         // ---------------- SEND MESSAGE ----------------
-        // ---------------- SEND MESSAGE ----------------
         @PostMapping("/{conversationId}/messages")
         public MessageResponse sendMessage(
                         @PathVariable Long conversationId,
@@ -43,24 +43,43 @@ public class MessageController {
                 Message message = messageService.sendMessage(
                                 conversationId,
                                 userId,
-                                request.getContent(),
+                                request,
                                 authHeader);
 
+                // Resolve sender name (non-blocking)
                 String senderName = "User";
                 try {
-                        var names = authUserClient.getUserNamesByIds(java.util.Set.of(userId), authHeader);
+                        var names = authUserClient.getUserNamesByIds(
+                                        java.util.Set.of(userId),
+                                        authHeader);
                         senderName = names.getOrDefault(userId, "User");
-                } catch (Exception e) {
+                } catch (Exception ignored) {
                 }
 
-                return new MessageResponse(
-                                message.getMessageId(),
-                                conversationId,
-                                message.getSenderId(),
-                                message.getContent(),
-                                message.getCreatedTimestamp(),
-                                false,
-                                senderName);
+                // Build response
+                MessageResponse response = new MessageResponse();
+                response.setMessageId(message.getMessageId());
+                response.setConversationId(conversationId);
+                response.setSenderId(message.getSenderId());
+                response.setSenderName(senderName);
+
+                response.setMessageType(message.getMessageType());
+                response.setContent(message.getContent());
+                response.setImageId(message.getImageId());
+                response.setCreatedTimestamp(message.getCreatedTimestamp());
+                response.setRead(false);
+
+                sseController.sendMessageEvent(conversationId, response);
+
+                // 🔥 IMAGE-SPECIFIC PART
+                if (message.getMessageType() == MessageType.IMAGE) {
+                        response.setThumbnailUrl(
+                                        "/api/images/" + message.getImageId() + "/thumbnail");
+                        response.setDownloadUrl(
+                                        "/api/images/" + message.getImageId() + "/download");
+                }
+
+                return response;
         }
 
         // ---------------- LOAD RECENT ----------------
@@ -87,18 +106,20 @@ public class MessageController {
                                         if (m.getSenderId().equals(userId)) {
                                                 isRead = readRepository.existsByMessage_MessageId(m.getMessageId());
                                         }
-                                        String name = finalNames.getOrDefault(m.getSenderId(),
-                                                        "User " + m.getSenderId());
-                                        return new MessageResponse(
-                                                        m.getMessageId(),
-                                                        conversationId,
+
+                                        String name = finalNames.getOrDefault(
                                                         m.getSenderId(),
-                                                        m.getContent(),
-                                                        m.getCreatedTimestamp(),
-                                                        isRead,
-                                                        name);
+                                                        "User " + m.getSenderId());
+
+                                        return toMessageResponse(
+                                                        m,
+                                                        conversationId,
+                                                        userId,
+                                                        name,
+                                                        isRead);
                                 })
                                 .toList();
+
         }
 
         // ---------------- PAGINATION ----------------
@@ -127,18 +148,20 @@ public class MessageController {
                                         if (m.getSenderId().equals(userId)) {
                                                 isRead = readRepository.existsByMessage_MessageId(m.getMessageId());
                                         }
-                                        String name = finalNames.getOrDefault(m.getSenderId(),
-                                                        "User " + m.getSenderId());
-                                        return new MessageResponse(
-                                                        m.getMessageId(),
-                                                        conversationId,
+
+                                        String name = finalNames.getOrDefault(
                                                         m.getSenderId(),
-                                                        m.getContent(),
-                                                        m.getCreatedTimestamp(),
-                                                        isRead,
-                                                        name);
+                                                        "User " + m.getSenderId());
+
+                                        return toMessageResponse(
+                                                        m,
+                                                        conversationId,
+                                                        userId,
+                                                        name,
+                                                        isRead);
                                 })
                                 .toList();
+
         }
 
         // ---------------- MARK READ ----------------
@@ -178,6 +201,31 @@ public class MessageController {
                 }
 
                 sseController.sendTypingEvent(conversationId, userId, username);
+        }
+
+        private MessageResponse toMessageResponse(
+                        Message m,
+                        Long conversationId,
+                        Long userId,
+                        String senderName,
+                        boolean isRead) {
+                MessageResponse res = new MessageResponse();
+                res.setMessageId(m.getMessageId());
+                res.setConversationId(conversationId);
+                res.setSenderId(m.getSenderId());
+                res.setSenderName(senderName);
+                res.setMessageType(m.getMessageType());
+                res.setContent(m.getContent());
+                res.setImageId(m.getImageId());
+                res.setCreatedTimestamp(m.getCreatedTimestamp());
+                res.setRead(isRead);
+
+                if (m.getMessageType() == MessageType.IMAGE) {
+                        res.setThumbnailUrl("/api/images/" + m.getImageId() + "/thumbnail");
+                        res.setDownloadUrl("/api/images/" + m.getImageId() + "/download");
+                }
+
+                return res;
         }
 
 }

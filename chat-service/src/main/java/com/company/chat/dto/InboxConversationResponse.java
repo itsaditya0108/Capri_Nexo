@@ -27,7 +27,8 @@ public class InboxConversationResponse {
             long unreadCount,
             Long otherUserId,
             String otherUserName,
-            String groupName) {
+            String groupName,
+            com.company.chat.model.MessageType lastMessageType) {
         this.conversationId = conversationId;
         this.type = type;
         this.lastMessage = lastMessage;
@@ -37,6 +38,13 @@ public class InboxConversationResponse {
         this.otherUserId = otherUserId;
         this.otherUserName = otherUserName;
         this.groupName = groupName;
+        this.lastMessageType = lastMessageType;
+    }
+
+    private com.company.chat.model.MessageType lastMessageType;
+
+    public com.company.chat.model.MessageType getLastMessageType() {
+        return lastMessageType;
     }
 
     public String getGroupName() {
