@@ -43,15 +43,27 @@ public class ImageServiceImpl implements ImageService {
 
     public ImageServiceImpl(
             ImageRepository imageRepository,
-            @Value("${image.storage.base-path}") String storageBasePath,
-            @Value("${image.storage.chat-path}") String chatStoragePath,
-            @Value("${image.upload.max-size}") long maxUploadSize,
-            @Value("${image.upload.max-count}") int maxUploadCount) {
+            @Value("${image.storage.base-path:./data/image-service}") String storageBasePath,
+            @Value("${image.storage.chat-path:./data/chat-images/storage}") String chatStoragePath,
+            @Value("${image.upload.max-size:5242880}") long maxUploadSize,
+            @Value("${image.upload.max-count:100}") int maxUploadCount) {
         this.imageRepository = imageRepository;
-        this.storageBasePath = storageBasePath;
-        this.chatStoragePath = chatStoragePath;
+        this.storageBasePath = (storageBasePath == null || storageBasePath.trim().isEmpty()) ? "./data/image-service"
+                : storageBasePath;
+        this.chatStoragePath = (chatStoragePath == null || chatStoragePath.trim().isEmpty())
+                ? "./data/chat-images/storage"
+                : chatStoragePath;
         this.maxUploadSize = maxUploadSize;
         this.maxUploadCount = maxUploadCount;
+
+        logger.info("ImageService initialized with BasePath: {}, ChatPath: {}", this.storageBasePath,
+                this.chatStoragePath);
+        try {
+            Files.createDirectories(Paths.get(this.storageBasePath));
+            Files.createDirectories(Paths.get(this.chatStoragePath));
+        } catch (IOException e) {
+            logger.error("Could not create storage directories", e);
+        }
     }
 
     // ------------------------------------------------------------------
