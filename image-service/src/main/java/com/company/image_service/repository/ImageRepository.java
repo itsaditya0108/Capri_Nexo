@@ -42,4 +42,12 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
                         LocalDateTime cutoff,
                         Pageable pageable);
 
+        /**
+         * Filter by storage path prefix (e.g. "users/" vs "shared_images/")
+         */
+        Page<Image> findByUserIdAndIsDeletedFalseAndStoragePathStartingWith(
+                        Long userId,
+                        String pathPrefix,
+                        Pageable pageable);
+
 }

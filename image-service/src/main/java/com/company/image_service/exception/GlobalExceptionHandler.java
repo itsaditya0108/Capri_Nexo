@@ -14,13 +14,11 @@ public class GlobalExceptionHandler {
         // -------------------------
         // Image not found / access denied
         // -------------------------
-        // -------------------------
-        // Image not found / access denied
-        // -------------------------
         @ExceptionHandler(ResourceNotFoundException.class)
         public ResponseEntity<ApiErrorResponse> handleNotFound(ResourceNotFoundException ex) {
 
                 ApiErrorResponse error = new ApiErrorResponse(
+                                404,
                                 "NOT_FOUND",
                                 ex.getMessage());
 
@@ -34,6 +32,7 @@ public class GlobalExceptionHandler {
 
                 if (ex.getMessage().contains("not found")) {
                         ApiErrorResponse error = new ApiErrorResponse(
+                                        404,
                                         "NOT_FOUND",
                                         ex.getMessage());
                         return ResponseEntity
@@ -42,6 +41,7 @@ public class GlobalExceptionHandler {
                 }
 
                 ApiErrorResponse error = new ApiErrorResponse(
+                                400,
                                 "REQUEST_FAILED",
                                 ex.getMessage());
 
@@ -57,7 +57,8 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleMaxSize(MaxUploadSizeExceededException ex) {
 
                 ApiErrorResponse error = new ApiErrorResponse(
-                                "FILE_TOO_LARGE",
+                                413,
+                                "PAYLOAD_TOO_LARGE",
                                 "Uploaded file exceeds allowed size");
 
                 return ResponseEntity
@@ -66,14 +67,19 @@ public class GlobalExceptionHandler {
         }
 
         // -------------------------
-        // Validation errors (future-proof)
+        // Validation errors
         // -------------------------
         @ExceptionHandler(MethodArgumentNotValidException.class)
         public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
 
+                String details = ex.getBindingResult().getFieldErrors().stream()
+                                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                                .collect(java.util.stream.Collectors.joining(", "));
+
                 ApiErrorResponse error = new ApiErrorResponse(
-                                "VALIDATION_ERROR",
-                                "Invalid request data");
+                                400,
+                                "VALIDATION_FAILED",
+                                details);
 
                 return ResponseEntity
                                 .status(HttpStatus.BAD_REQUEST)
@@ -87,6 +93,7 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex) {
 
                 ApiErrorResponse error = new ApiErrorResponse(
+                                500,
                                 "INTERNAL_ERROR",
                                 "Something went wrong");
 

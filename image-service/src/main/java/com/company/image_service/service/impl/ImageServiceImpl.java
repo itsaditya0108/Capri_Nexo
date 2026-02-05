@@ -37,16 +37,19 @@ public class ImageServiceImpl implements ImageService {
 
     private final ImageRepository imageRepository;
     private final String storageBasePath;
+    private final String chatStoragePath;
     private final long maxUploadSize;
     private final int maxUploadCount;
 
     public ImageServiceImpl(
             ImageRepository imageRepository,
             @Value("${image.storage.base-path}") String storageBasePath,
+            @Value("${image.storage.chat-path}") String chatStoragePath,
             @Value("${image.upload.max-size}") long maxUploadSize,
             @Value("${image.upload.max-count}") int maxUploadCount) {
         this.imageRepository = imageRepository;
         this.storageBasePath = storageBasePath;
+        this.chatStoragePath = chatStoragePath;
         this.maxUploadSize = maxUploadSize;
         this.maxUploadCount = maxUploadCount;
     }
@@ -57,7 +60,25 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public Page<Image> getUserImages(Long userId, Pageable pageable) {
-        return imageRepository.findByUserIdAndIsDeletedFalse(userId, pageable);
+        // Default behavior: show all (or could default to personal, but 'all' is safer
+        // for now)
+        return getUserImages(userId, "all", pageable);
+    }
+
+    @Override
+    public Page<Image> getUserImages(Long userId, String type, Pageable pageable) {
+        // Filter logic
+        if ("personal".equalsIgnoreCase(type)) {
+            // "users/" is the prefix for personal images
+            return imageRepository.findByUserIdAndIsDeletedFalseAndStoragePathStartingWith(userId, "users/", pageable);
+        } else if ("chat".equalsIgnoreCase(type)) {
+            // "shared_images/" is the prefix for chat images
+            return imageRepository.findByUserIdAndIsDeletedFalseAndStoragePathStartingWith(userId, "shared_images/",
+                    pageable);
+        } else {
+            // "all" or unknown
+            return imageRepository.findByUserIdAndIsDeletedFalse(userId, pageable);
+        }
     }
 
     @Override
@@ -91,15 +112,25 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     @Transactional
-    public Image uploadImage(Long userId, MultipartFile file) {
+    public Image uploadImage(Long userId, MultipartFile file, String type) {
 
         try {
             // 1️⃣ HARD validation (real image check)
             BufferedImage source = ImageValidationUtil.validateAndRead(file, maxUploadSize);
 
+            // Determine which base path to use
+            String currentBasePath = "chat".equalsIgnoreCase(type) ? chatStoragePath : storageBasePath;
+
+            logger.info("DEBUG: Uploading image. Type: {}, Using Path: {}", type, currentBasePath);
+            logger.info("DEBUG: Configured Chat Path: {}", chatStoragePath);
+
             // 2️⃣ Store image + thumbnail
             StoredImageResult result = FileStorageUtil.storeWithThumbnail(
-                    file, userId, storageBasePath, source);
+                    file,
+                    userId,
+                    currentBasePath,
+                    source,
+                    type);
 
             // 3️⃣ Build metadata
             Image image = new Image();
@@ -160,7 +191,11 @@ public class ImageServiceImpl implements ImageService {
 
                     // 2️⃣ Store image + thumbnail
                     StoredImageResult result = FileStorageUtil.storeWithThumbnail(
-                            file, userId, storageBasePath, source);
+                            file,
+                            userId,
+                            storageBasePath,
+                            source,
+                            "personal");
 
                     storedResults.add(result);
 
@@ -217,11 +252,28 @@ public class ImageServiceImpl implements ImageService {
     @Override
     public Resource downloadImage(Long imageId, Long userId) {
 
-        Image image = imageRepository
-                .findByIdAndUserIdAndIsDeletedFalse(imageId, userId)
-                .orElseThrow(() -> new RuntimeException("Image not found or access denied"));
+        // 1. Fetch image (checking only existence and deletion first)
+        Image image = imageRepository.findById(imageId)
+                .filter(img -> !img.getIsDeleted())
+                .orElseThrow(() -> new RuntimeException("Image not found"));
 
-        Path fullPath = Paths.get(storageBasePath, image.getStoragePath());
+        boolean isShared = image.getStoragePath() != null && image.getStoragePath().startsWith("shared_images");
+
+        // 2. Access Control
+        if (!isShared) {
+            // For personal images, strict ownership check
+            if (!image.getUserId().equals(userId)) {
+                throw new RuntimeException("Access denied");
+            }
+        }
+
+        // 3. Resolve Path
+        Path fullPath;
+        if (isShared) {
+            fullPath = Paths.get(chatStoragePath, image.getStoragePath());
+        } else {
+            fullPath = Paths.get(storageBasePath, image.getStoragePath());
+        }
 
         try {
             Resource resource = new UrlResource(fullPath.toUri());
@@ -249,7 +301,13 @@ public class ImageServiceImpl implements ImageService {
     public Resource downloadImageById(Long id) {
 
         Image image = getImageById(id);
-        Path fullPath = Paths.get(storageBasePath, image.getStoragePath());
+
+        Path fullPath;
+        if (image.getStoragePath() != null && image.getStoragePath().startsWith("shared_images")) {
+            fullPath = Paths.get(chatStoragePath, image.getStoragePath());
+        } else {
+            fullPath = Paths.get(storageBasePath, image.getStoragePath());
+        }
 
         try {
             Resource resource = new UrlResource(fullPath.toUri());
@@ -292,11 +350,26 @@ public class ImageServiceImpl implements ImageService {
 
     public Resource downloadThumbnail(Long imageId, Long userId) {
 
-        Image image = imageRepository
-                .findByIdAndUserIdAndIsDeletedFalse(imageId, userId)
-                .orElseThrow(() -> new RuntimeException("Image not found or access denied"));
+        // 1. Fetch image
+        Image image = imageRepository.findById(imageId)
+                .filter(img -> !img.getIsDeleted())
+                .orElseThrow(() -> new RuntimeException("Image not found"));
 
-        Path fullPath = Paths.get(storageBasePath, image.getThumbnailPath());
+        boolean isShared = image.getThumbnailPath() != null && image.getThumbnailPath().startsWith("shared_images");
+
+        // 2. Access Control
+        if (!isShared) {
+            if (!image.getUserId().equals(userId)) {
+                throw new RuntimeException("Access denied");
+            }
+        }
+
+        Path fullPath;
+        if (isShared) {
+            fullPath = Paths.get(chatStoragePath, image.getThumbnailPath());
+        } else {
+            fullPath = Paths.get(storageBasePath, image.getThumbnailPath());
+        }
 
         try {
             Resource resource = new UrlResource(fullPath.toUri());
@@ -320,4 +393,8 @@ public class ImageServiceImpl implements ImageService {
         }
     }
 
+    @Override
+    public boolean validateImage(Long imageId, Long userId) {
+        return imageRepository.findByIdAndUserIdAndIsDeletedFalse(imageId, userId).isPresent();
+    }
 }
