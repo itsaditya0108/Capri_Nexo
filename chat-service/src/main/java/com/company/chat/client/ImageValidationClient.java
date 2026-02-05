@@ -15,7 +15,7 @@ public class ImageValidationClient {
 
     private final RestTemplate restTemplate;
 
-    @Value("${image.service.url}")
+    @Value("${image.service.url:http://localhost:8084}")
     private String imageServiceUrl;
 
     public ImageValidationClient(RestTemplate restTemplate) {
