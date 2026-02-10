@@ -26,6 +26,8 @@ import java.util.UUID;
 @Service
 public class VideoUploadServiceImpl implements VideoUploadService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VideoUploadServiceImpl.class);
+
     private final VideoUploadSessionRepository sessionRepository;
     private final VideoUploadChunkRepository chunkRepository;
     private final VideoRepository videoRepository;
@@ -186,17 +188,21 @@ public class VideoUploadServiceImpl implements VideoUploadService {
         java.io.File folder = new java.io.File(folderPath);
 
         if (!folder.exists()) {
-            folder.mkdirs();
+            boolean created = folder.mkdirs();
+            if (!created && !folder.exists()) {
+                log.error("Failed to create directory: {}", folderPath);
+                throw new RuntimeException("FAILED_TO_CREATE_DIR: " + folderPath);
+            }
         }
 
         String filePath = folderPath + "/" + chunkIndex + ".part";
 
         try (java.io.FileOutputStream fos = new java.io.FileOutputStream(filePath)) {
             fos.write(chunkBytes);
-            System.out.println(
-                    "DEBUG: Chunk " + chunkIndex + " written to " + filePath + " (" + chunkBytes.length + " bytes)");
+            log.debug("Chunk {} written to {} ({} bytes)", chunkIndex, filePath, chunkBytes.length);
         } catch (Exception e) {
-            throw new RuntimeException("CHUNK_WRITE_FAILED");
+            log.error("Failed to write chunk file: {}", filePath, e);
+            throw new RuntimeException("CHUNK_WRITE_FAILED: " + e.getMessage());
         }
 
         // save chunk in DB
