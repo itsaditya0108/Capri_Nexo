@@ -20,7 +20,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @Profile("prod")
-public class SecurityConfig {
+public class VideoSecurityConfig {
 
     @Value("${auth.service.base-url}")
     private String authServiceBaseUrl;
