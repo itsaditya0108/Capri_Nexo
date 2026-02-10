@@ -64,6 +64,11 @@
     </div>
 
     <script>
+        /* ================= CONFIG ================= */
+        const hostname = window.location.hostname || 'localhost';
+        const protocol = window.location.protocol || 'http:';
+        console.log("DEBUG: Login Page Hostname:", hostname);
+
         const loginForm = document.getElementById("loginForm");
         const loginResult = document.getElementById("loginResult");
         const loginBtn = loginForm.querySelector("button");
@@ -150,8 +155,8 @@
 
         // Stable browser device ID
         if (!localStorage.getItem("webDeviceId")) {
-            // Fallback for browsers that don't support crypto.randomUUID
-            const uuid = (crypto.randomUUID && crypto.randomUUID()) ||
+            // Robust fallback for non-secure contexts (WiFi IP)
+            const uuid = (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : null) ||
                 (Math.random().toString(36).substring(2) + Date.now().toString(36));
             localStorage.setItem("webDeviceId", uuid);
         }

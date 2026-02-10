@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -194,6 +194,10 @@
                 <ion-icon name="images-outline"></ion-icon>
                 <span>Images</span>
             </li>
+            <li class="nav-item" onclick="switchView('videos', this)">
+                <ion-icon name="videocam-outline"></ion-icon>
+                <span>Videos</span>
+            </li>
 
             <li class="nav-item" onclick="switchView('chat', this)">
                 <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
@@ -219,6 +223,9 @@
         </div>
         <div class="bottom-nav-item" onclick="switchView('images', this, true)">
             <ion-icon name="images-outline"></ion-icon>
+        </div>
+        <div class="bottom-nav-item" onclick="switchView('videos', this, true)">
+            <ion-icon name="videocam-outline"></ion-icon>
         </div>
 
         <div class="bottom-nav-item" onclick="switchView('chat', this, true)">
@@ -297,6 +304,48 @@
             </div>
         </div>
 
+        <!-- VIDEOS VIEW -->
+        <div id="view-videos" class="view-container hidden">
+            <div class="card">
+                <h2>Your Videos</h2>
+
+                <div class="upload-controls">
+                    <div class="control-group">
+                        <label>Upload Video</label>
+                        <div class="input-row">
+                            <input type="file" id="videoUploadInput" accept="video/*" />
+                            <button class="btn btn-primary" onclick="uploadVideo()">
+                                <ion-icon name="cloud-upload-outline"></ion-icon> Upload
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Video Sync -->
+                    <div class="control-group" style="margin-top: 15px;">
+                        <label>Sync Videos (Folder)</label>
+                        <div class="input-row">
+                            <input type="file" id="videoFolderPicker" webkitdirectory multiple accept="video/*" />
+                            <button class="btn btn-secondary" onclick="syncVideos()">
+                                <ion-icon name="sync-outline"></ion-icon> Sync Folder
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="videoUploadProgress" style="display:none; margin-top: 10px;">
+                        <p id="videoSyncStatus"
+                            style="font-size: 14px; font-weight: bold; margin-bottom: 5px; color: #333; display:none;">
+                        </p>
+                        <progress id="videoProgressBar" value="0" max="100" style="width: 100%;"></progress>
+                        <p id="videoProgressText"
+                            style="font-size: 13px; color: #666; margin-top: 4px; white-space: pre-wrap;"></p>
+                    </div>
+                </div>
+
+                <div id="videoGrid" class="image-grid">
+                    <!-- Videos injected here -->
+                </div>
+            </div>
+        </div>
 
         <!-- MESSAGES VIEW -->
         <div id="view-chat" class="view-container hidden">
@@ -491,6 +540,16 @@
         </div>
     </div>
 
+    <!-- VIDEO PLAYER MODAL -->
+    <div id="videoModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="closeVideoModal()"></div>
+        <div class="modal-content" style="width: 80%; max-width: 900px; background: #000; position: relative;">
+            <button onclick="closeVideoModal()"
+                style="position: absolute; top: -40px; right: 0; background: none; border: none; color: white; font-size: 30px; cursor: pointer;">&times;</button>
+            <video id="modalVideoPlayer" controls style="width: 100%; height: auto; display: block;"></video>
+        </div>
+    </div>
+
     <!-- CREATE GROUP MODAL -->
     <div id="createGroupModal" class="hidden modal">
         <div class="modal-backdrop" onclick="closeCreateGroupModal()"></div>
@@ -552,6 +611,7 @@
         const AUTH_BASE = `${protocol}//${hostname}:8082`;
         const CHAT_BASE = urlParams.get("chatUrl") || `${protocol}//${hostname}:8083`;
         const IMAGE_BASE = `${protocol}//${hostname}:8084`;
+        const VIDEO_BASE = `${protocol}//${hostname}:8085`;
         let user = null;
         let token = null;
         let activeConversationId = null;
@@ -569,6 +629,7 @@
             token = sessionStorage.getItem("accessToken");
 
             if (!userData || !token) {
+                console.error("Missing user/token in sessionStorage", { userData, token });
                 window.location.href = "login.html";
                 return;
             }
@@ -665,7 +726,7 @@
 
         /* ================= NAV ================= */
         function switchView(viewId, navEl, isMobile = false) {
-            ["view-dashboard", "view-chat", "view-profile", "view-images"]
+            ["view-dashboard", "view-chat", "view-profile", "view-images", "view-videos"]
                 .forEach(id => document.getElementById(id)?.classList.add("hidden"));
 
             document.getElementById(`view-${viewId}`).classList.remove("hidden");
@@ -674,6 +735,8 @@
                 loadImages(); // 🔥 auto-load images
             } else if (viewId === "profile") {
                 loadProfile(); // 🔥 auto-load profile & history
+            } else if (viewId === "videos") {
+                loadVideos();
             }
 
             document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
@@ -2631,8 +2694,424 @@
         function closeMobileChat() {
             document.getElementById("chatMain").classList.remove("active");
         }
+
+        /* ================= VIDEO FUNCTIONS ================= */
+
+        async function loadVideos() {
+            try {
+                const res = await fetch(`${VIDEO_BASE}/api/v1/videos`, {
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "X-USER-ID": user.userId || user.id
+                    }
+                });
+
+                // Fetch processing jobs too
+                const jobsRes = await fetch(`${VIDEO_BASE}/api/v1/videos/processing-jobs`, {
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "X-USER-ID": user.userId || user.id
+                    }
+                });
+
+                let videos = [];
+                let jobs = [];
+
+                if (res.ok) videos = await res.json();
+                if (jobsRes.ok) jobs = await jobsRes.json();
+
+                // Filter out jobs that clearly correspond to already uploaded videos
+                // (This prevents duplicates during the thumbnail generation phase)
+                if (videos.length > 0 && jobs.length > 0) {
+                    const uploadedUids = new Set(videos.map(v => v.uploadUid));
+                    jobs = jobs.filter(j => !uploadedUids.has(j.uploadUid));
+                }
+
+                renderVideos(videos, jobs);
+
+                // Auto refresh if there are active jobs
+                if (jobs.length > 0) {
+                    setTimeout(loadVideos, 5000);
+                }
+
+            } catch (e) {
+                console.error("Error loading videos", e);
+            }
+        }
+
+        function renderVideos(videos, jobs = []) {
+            const grid = document.getElementById("videoGrid");
+            grid.innerHTML = "";
+
+            if ((!videos || videos.length === 0) && (!jobs || jobs.length === 0)) {
+                grid.innerHTML = "<p style='color:#888; grid-column:1/-1; text-align:center; padding: 40px;'>No videos found. Upload your first video to get started!</p>";
+                return;
+            }
+
+            // Render active jobs
+            jobs.forEach(j => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "video-item processing";
+                wrapper.style.opacity = "0.8";
+
+                wrapper.innerHTML = `
+                    <div style="width:100%; height:100%; background:#1a1a1a; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                        <ion-icon name='sync-outline' class='spin' style='color:#0095f6; font-size:42px;'></ion-icon>
+                        <div style="color:#fff; font-size:12px; margin-top:12px; font-weight:600;">Processing...</div>
+                    </div>
+                `;
+                grid.appendChild(wrapper);
+            });
+
+            videos.forEach(v => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "video-item";
+                wrapper.onclick = () => openVideoModal(v.videoUid);
+
+                // Initial structure: Hidden image container + Visible Fail/Fallback
+                wrapper.innerHTML = `
+                    <div class="video-thumbnail-container" style="width:100%; height:100%; display:none; position:absolute; inset:0; z-index:1;">
+                         <img alt="${v.title || 'Video'}" style="width:100%; height:100%; object-fit:cover; display:block;">
+                    </div>
+                    <div class="video-fallback" style="background: linear-gradient(135deg, #2b2b2b, #1a1a1a); position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:2;">
+                        <ion-icon name="videocam-outline" style="font-size:40px; color:#555;"></ion-icon>
+                    </div>
+                    <div class="play-overlay" style="z-index:3;">
+                        <ion-icon name="play-circle-outline"></ion-icon>
+                    </div>
+                `;
+
+                if (v.title) {
+                    const title = document.createElement("div");
+                    title.innerText = v.title;
+                    title.className = "video-title-overlay"; // Use class for styling
+                    title.style.position = "absolute";
+                    title.style.bottom = "8px";
+                    title.style.left = "8px";
+                    title.style.right = "8px"; // Limit width
+                    title.style.color = "white";
+                    title.style.fontSize = "12px";
+                    title.style.fontWeight = "600";
+                    title.style.textShadow = "0 1px 4px rgba(0,0,0,0.8)";
+                    title.style.whiteSpace = "nowrap";
+                    title.style.overflow = "hidden";
+                    title.style.textOverflow = "ellipsis";
+                    wrapper.appendChild(title);
+                }
+
+                grid.appendChild(wrapper);
+
+                if (v.thumbnailStatus === 'READY') {
+                    loadSecureThumbnail(v.videoUid, wrapper);
+                }
+            });
+        }
+
+
+
+        async function loadSecureThumbnail(videoUid, wrapper) {
+            try {
+                const imgContainer = wrapper.querySelector(".video-thumbnail-container");
+                const fallback = wrapper.querySelector(".video-fallback");
+                const img = imgContainer.querySelector("img");
+
+                console.log(`Step 1: Fetching thumb for ${videoUid}...`);
+                const res = await fetch(`${VIDEO_BASE}/api/v1/videos/${videoUid}/thumbnail`, {
+                    headers: {
+                        "Authorization": "Bearer " + token
+                    }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Step 1 Failed: Status ${res.status}`);
+                }
+
+                console.log(`Step 2: Blobbing ${videoUid}...`);
+                const blob = await res.blob();
+                console.log(`Step 2.5: Blob created, size: ${blob.size}`);
+                const objectUrl = URL.createObjectURL(blob);
+
+                // FORCE LAYOUT: Ensure image has dimensions so browser decodes it
+                imgContainer.style.display = "block";
+
+                img.src = objectUrl;
+                img.onload = () => {
+                    console.log(`Step 3: Image Loaded ${videoUid}`);
+                    // Hide fallback (which is z-index 2)
+                    fallback.style.display = "none";
+                };
+                img.onerror = (e) => {
+                    console.error("Image OnError:", videoUid, e);
+                };
+
+            } catch (e) {
+                console.error("Failed to load secure thumbnail:", videoUid, e);
+                // Fallback remains visible
+            }
+        }
+
+        function openVideoModal(videoUid) {
+            const modal = document.getElementById("videoModal");
+            const player = document.getElementById("modalVideoPlayer");
+            // Direct streaming URL
+            player.src = `${VIDEO_BASE}/api/v1/videos/${videoUid}`;
+            modal.classList.remove("hidden");
+            player.play().catch(e => console.log("Auto-play prevented", e));
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById("videoModal");
+            const player = document.getElementById("modalVideoPlayer");
+            player.pause();
+            player.src = ""; // Stop buffering
+            modal.classList.add("hidden");
+        }
+
+        async function uploadVideo() {
+            const fileInput = document.getElementById("videoUploadInput");
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const progressText = document.getElementById("videoProgressText");
+            const progressArea = document.getElementById("videoUploadProgress");
+            const syncStatus = document.getElementById("videoSyncStatus");
+
+            if (syncStatus) syncStatus.style.display = "none";
+            progressArea.style.display = "block";
+            progressText.innerText = "Starting upload...";
+            progressText.style.color = "#666";
+
+            try {
+                const result = await uploadSingleVideo(file, (msg) => {
+                    progressText.innerText = msg;
+                });
+
+                if (result.status === "SUCCESS") {
+                    progressText.innerText = "Upload complete! Processing...";
+                    fileInput.value = "";
+                    setTimeout(loadVideos, 2000);
+                } else if (result.status === "SKIPPED") {
+                    progressText.innerText = "Skipped: " + result.message;
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (e) {
+                console.error("Upload error", e);
+                progressText.innerText = "Upload failed: " + e.message;
+                progressText.style.color = "red";
+            }
+
+            setTimeout(() => {
+                if (progressText.innerText.includes("complete") || progressText.innerText.includes("Skipped")) {
+                    progressArea.style.display = "none";
+                    progressText.innerText = "";
+                }
+            }, 5000);
+        }
+
     </script>
 
-</body>
+    <script>
+        async function syncVideos() {
+            const picker = document.getElementById("videoFolderPicker");
+            if (!picker.files || picker.files.length === 0) {
+                alert("Please select a folder first.");
+                return;
+            }
+
+            const progressText = document.getElementById("videoProgressText");
+            const progressArea = document.getElementById("videoUploadProgress");
+            const progressBar = document.getElementById("videoProgressBar");
+            const syncStatus = document.getElementById("videoSyncStatus");
+
+            syncStatus.style.display = "block";
+            syncStatus.innerText = "Scanning files...";
+            progressText.innerText = "";
+
+            progressArea.style.display = "block";
+            progressText.innerText = "Scanning files...";
+            progressText.style.color = "#666";
+            progressBar.value = 0;
+
+            let files = Array.from(picker.files).filter(f => f.type.startsWith("video/"));
+
+            if (files.length === 0) {
+                progressText.innerText = "No video files found in selected folder.";
+                return;
+            }
+
+            // Sort: Smallest to Largest
+            files.sort((a, b) => a.size - b.size);
+
+            let successCount = 0;
+            let skippedCount = 0;
+            let errorCount = 0;
+            const total = files.length;
+            const MAX_SIZE = 500 * 1024 * 1024; // 500MB
+
+            for (let i = 0; i < total; i++) {
+                const file = files[i];
+                const fileNum = i + 1;
+
+                // Update Overall Status
+                syncStatus.innerText = `Processing file ${fileNum} of ${total}: ${file.name}`;
+                progressBar.value = 0;
+                progressText.innerText = "Starting upload...";
+
+                if (file.size > MAX_SIZE) {
+                    console.warn(`Skipping ${file.name} (Too large)`);
+                    progressText.innerText = `Skipped: Too large (${formatSize(file.size)})`;
+                    skippedCount++;
+                    // Delay to let user read message
+                    await new Promise(r => setTimeout(r, 1500));
+                    continue;
+                }
+
+                try {
+                    const result = await uploadSingleVideo(file, (msg) => {
+                        progressText.innerText = msg;
+                    });
+
+                    if (result.status === "SUCCESS") {
+                        successCount++;
+                        // Small delay to show 100% bar
+                        await new Promise(r => setTimeout(r, 500));
+                    } else if (result.status === "SKIPPED") {
+                        skippedCount++;
+                        progressText.innerText = "Skipped: " + result.message;
+                        await new Promise(r => setTimeout(r, 1500));
+                    } else {
+                        errorCount++;
+                        console.error(`Failed ${file.name}: ${result.message}`);
+                        progressText.innerText = "Error: " + result.message;
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                } catch (err) {
+                    errorCount++;
+                    console.error(`Error uploading ${file.name}`, err);
+                    progressText.innerText = "Exception: " + err.message;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+
+            progressBar.value = 100;
+            syncStatus.innerText = "Sync Complete!";
+            progressText.innerText = `Uploaded: ${successCount}\nSkipped: ${skippedCount}\nErrors: ${errorCount}`;
+            progressText.style.color = "#333";
+
+            loadVideos();
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                progressArea.style.display = "none";
+                syncStatus.style.display = "none";
+                syncStatus.innerText = "";
+                progressText.innerText = "";
+                progressBar.value = 0;
+            }, 5000);
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + " B";
+            else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+            else return (bytes / 1048576).toFixed(1) + " MB";
+        }
+
+        async function uploadSingleVideo(file, statusCallback) {
+            const CHUNK_SIZE = 5 * 1024 * 1024;
+            const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+            try {
+                statusCallback("Initializing...");
+                const initRes = await fetch(`${VIDEO_BASE}/api/v1/videos/uploads/init`, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "Content-Type": "application/json",
+                        "X-USER-ID": user.userId || user.id
+                    },
+                    body: JSON.stringify({
+                        fileName: file.name,
+                        fileSize: file.size,
+                        mimeType: file.type,
+                        totalChunks: totalChunks
+                    })
+                });
+
+                if (!initRes.ok) {
+                    const err = await initRes.text();
+                    if (err.includes("VIDEO_ALREADY_EXISTS")) {
+                        return { status: "SKIPPED", message: "Already exists" };
+                    }
+                    return { status: "ERROR", message: "Init failed: " + err };
+                }
+                const initData = await initRes.json();
+                const uploadUid = initData.uploadUid;
+
+                statusCallback("Checking resume status...");
+                const statusRes = await fetch(`${VIDEO_BASE}/api/v1/videos/uploads/${uploadUid}/status`, {
+                    headers: { "Authorization": "Bearer " + token, "X-USER-ID": user.userId || user.id }
+                });
+
+                let uploadedChunks = [];
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    uploadedChunks = statusData.uploadedChunks || [];
+                }
+
+                for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                    if (uploadedChunks.includes(chunkIndex)) continue;
+
+                    const start = chunkIndex * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, file.size);
+                    const chunk = file.slice(start, end);
+
+                    let hashHex = "SHA256_UNAVAILABLE";
+                    let retryCount = 0;
+                    let success = false;
+
+                    while (retryCount < 3 && !success) {
+                        try {
+                            const chunkRes = await fetch(`${VIDEO_BASE}/api/v1/videos/uploads/${uploadUid}/chunks/${chunkIndex}`, {
+                                method: "PUT",
+                                headers: {
+                                    "Authorization": "Bearer " + token,
+                                    "X-USER-ID": user.userId || user.id,
+                                    "Content-Type": "application/octet-stream",
+                                    "X-Chunk-SHA256": hashHex
+                                },
+                                body: chunk
+                            });
+                            if (!chunkRes.ok) throw new Error("Status " + chunkRes.status);
+                            success = true;
+                        } catch (e) {
+                            retryCount++;
+                            await new Promise(r => setTimeout(r, 1000 * retryCount));
+                        }
+                    }
+                    if (!success) return { status: "ERROR", message: "Chunk upload failed" };
+
+                    const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+                    const progressBar = document.getElementById("videoProgressBar");
+                    if (progressBar) progressBar.value = percent;
+                    statusCallback(`Uploading... ${percent}%`);
+                }
+
+                statusCallback("Finalizing...");
+                const compRes = await fetch(`${VIDEO_BASE}/api/v1/videos/uploads/${uploadUid}/finalize`, {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + token, "X-USER-ID": user.userId || user.id }
+                });
+
+                if (compRes.ok) return { status: "SUCCESS", message: "Uploaded" };
+                const compErr = await compRes.text();
+                return { status: "ERROR", message: compErr };
+
+            } catch (e) {
+                return { status: "ERROR", message: e.message };
+            }
+        }
+
+    </script>
 
 </html>

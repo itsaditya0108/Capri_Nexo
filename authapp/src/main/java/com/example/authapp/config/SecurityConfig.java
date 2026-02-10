@@ -45,7 +45,8 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/auth/**").permitAll()
                                                 .requestMatchers("/internal/users/by-ids").permitAll() // Internal
                                                                                                        // service call
-                                                .requestMatchers("/", "/*.html", "/css/**", "/js/**", "/images/**",
+                                                .requestMatchers("/", "/*.html", "/login", "/dashboard", "/css/**",
+                                                                "/js/**", "/images/**",
                                                                 "/favicon.ico", "/error")
                                                 .permitAll()
                                                 .requestMatchers("/api/images/**").permitAll() // Pass-through to Image
