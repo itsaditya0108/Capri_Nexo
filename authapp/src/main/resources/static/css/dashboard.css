@@ -65,12 +65,13 @@ body {
 }
 
 .brand {
-    font-size: 28px;
-    font-weight: 600;
+    font-size: 32px;
+    font-weight: 700;
     margin-bottom: 40px;
     padding-left: 12px;
-    font-family: 'Billabong', 'Segoe UI', cursive, sans-serif;
-    letter-spacing: 1px;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    letter-spacing: 0.5px;
     background: var(--gradient);
     -webkit-background-clip: text;
     background-clip: text;
