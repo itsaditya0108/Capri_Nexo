@@ -2854,7 +2854,7 @@
             const modal = document.getElementById("videoModal");
             const player = document.getElementById("modalVideoPlayer");
             // Direct streaming URL
-            player.src = `${VIDEO_BASE}/api/v1/videos/${videoUid}`;
+            player.src = `${VIDEO_BASE}/api/v1/videos/${videoUid}?token=${encodeURIComponent(token)}`;
             modal.classList.remove("hidden");
             player.play().catch(e => console.log("Auto-play prevented", e));
         }
@@ -3067,8 +3067,7 @@
                     const chunk = file.slice(start, end);
 
                     let hashHex = "SHA256_UNAVAILABLE";
-                    let retryCount = 0;
-                    let success = false;
+                    let lastErrorMessage = "Chunk upload failed";
 
                     while (retryCount < 3 && !success) {
                         try {
@@ -3082,14 +3081,28 @@
                                 },
                                 body: chunk
                             });
-                            if (!chunkRes.ok) throw new Error("Status " + chunkRes.status);
+
+                            if (!chunkRes.ok) {
+                                let errMsg = "Status " + chunkRes.status;
+                                try {
+                                    const errJson = await chunkRes.json();
+                                    if (errJson.message) errMsg = errJson.message;
+                                } catch (e) {
+                                    const errText = await chunkRes.text();
+                                    if (errText) errMsg = errText;
+                                }
+                                throw new Error(errMsg);
+                            }
+
                             success = true;
                         } catch (e) {
+                            lastErrorMessage = e.message;
                             retryCount++;
+                            console.warn(`Chunk ${chunkIndex} retry ${retryCount}: ${e.message}`);
                             await new Promise(r => setTimeout(r, 1000 * retryCount));
                         }
                     }
-                    if (!success) return { status: "ERROR", message: "Chunk upload failed" };
+                    if (!success) return { status: "ERROR", message: "Upload failed: " + lastErrorMessage };
 
                     const percent = Math.round(((chunkIndex + 1) / totalChunks) * 100);
                     const progressBar = document.getElementById("videoProgressBar");
