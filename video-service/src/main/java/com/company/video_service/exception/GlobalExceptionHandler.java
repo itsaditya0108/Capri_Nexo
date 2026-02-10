@@ -20,8 +20,9 @@ public class GlobalExceptionHandler {
         } else if ("THUMBNAIL_NOT_READY".equals(message)) {
             status = 404; // Or 202 Accepted if you want client to retry
             error = "NOT_READY";
-        } else if (message.startsWith("Chunk upload failed")) {
-            status = 400;
+        } else if (message.startsWith("Chunk upload failed") || message.startsWith("CHUNK_WRITE_FAILED")
+                || message.startsWith("FAILED_TO_CREATE_DIR")) {
+            status = 500;
             error = "UPLOAD_FAILED";
         }
 

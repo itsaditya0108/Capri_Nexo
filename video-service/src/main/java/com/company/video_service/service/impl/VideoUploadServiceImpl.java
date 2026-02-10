@@ -165,12 +165,14 @@ public class VideoUploadServiceImpl implements VideoUploadService {
 
         String computedHash = HashUtil.sha256Hex(chunkBytes);
         if (checksumEnabled) {
-
             if (sha256 == null || sha256.isBlank()) {
                 throw new RuntimeException("MISSING_SHA256_HEADER");
             }
 
-            if (!computedHash.equalsIgnoreCase(sha256)) {
+            if ("SHA256_UNAVAILABLE".equals(sha256)) {
+                log.warn("Checksum validation skipped for chunk {}: Frontend sent SHA256_UNAVAILABLE", chunkIndex);
+            } else if (!computedHash.equalsIgnoreCase(sha256)) {
+                log.error("Checksum mismatch for chunk {}: expected={}, actual={}", chunkIndex, sha256, computedHash);
                 throw new RuntimeException("CHUNK_CHECKSUM_MISMATCH");
             }
         }
