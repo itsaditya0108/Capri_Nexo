@@ -361,21 +361,29 @@ public class ImageServiceImpl implements ImageService {
     // ------------------------------------------------------------------
 
     public Resource downloadThumbnail(Long imageId, Long userId) {
+        logger.info("DEBUG: downloadThumbnail requested for imageId: {}, userId: {}", imageId, userId);
 
         // 1. Fetch image
         Image image = imageRepository.findById(imageId)
                 .filter(img -> !img.getIsDeleted())
                 .orElseThrow(() -> new RuntimeException("Image not found"));
 
+        logger.info("DEBUG: Found image entity. StoragePath: {}, ThumbnailPath: {}, UserId: {}",
+                image.getStoragePath(), image.getThumbnailPath(), image.getUserId());
+
         boolean isShared = image.getThumbnailPath() != null && image.getThumbnailPath().startsWith("shared_images");
+        logger.info("DEBUG: isShared: {}", isShared);
 
         // 2. Access Control
         if (!isShared) {
             if (!image.getUserId().equals(userId)) {
+                logger.warn("DEBUG: Access denied. Image belongs to userId: {}, but requested by userId: {}",
+                        image.getUserId(), userId);
                 throw new RuntimeException("Access denied");
             }
         }
 
+        // Try primary path
         Path fullPath;
         if (isShared) {
             fullPath = Paths.get(chatStoragePath, image.getThumbnailPath());
@@ -383,16 +391,39 @@ public class ImageServiceImpl implements ImageService {
             fullPath = Paths.get(storageBasePath, image.getThumbnailPath());
         }
 
+        logger.info("DEBUG: Resolved full path: {}", fullPath.toAbsolutePath());
+
         try {
             Resource resource = new UrlResource(fullPath.toUri());
 
-            if (!resource.exists() || !resource.isReadable()) {
-                throw new RuntimeException("Thumbnail file not found");
+            if (resource.exists() && resource.isReadable()) {
+                return resource;
+            } else {
+                logger.warn("DEBUG: Resource NOT FOUND at primary path: {}. Trying fallback path.",
+                        fullPath.toAbsolutePath());
             }
 
-            return resource;
+            // Fallback: Try the OTHER path
+            Path fallbackPath;
+            if (isShared) {
+                fallbackPath = Paths.get(storageBasePath, image.getThumbnailPath());
+            } else {
+                fallbackPath = Paths.get(chatStoragePath, image.getThumbnailPath());
+            }
+
+            logger.info("DEBUG: Checking fallback path: {}", fallbackPath.toAbsolutePath());
+
+            Resource fallbackResource = new UrlResource(fallbackPath.toUri());
+            if (fallbackResource.exists() && fallbackResource.isReadable()) {
+                logger.info("DEBUG: Found resource at fallback path!");
+                return fallbackResource;
+            }
+
+            logger.error("DEBUG: Resource NOT FOUND at either path.");
+            throw new RuntimeException("Thumbnail file not found");
 
         } catch (MalformedURLException e) {
+            logger.error("DEBUG: Malformed URL for path: {}", fullPath, e);
             throw new RuntimeException("Invalid thumbnail path", e);
         }
     }
