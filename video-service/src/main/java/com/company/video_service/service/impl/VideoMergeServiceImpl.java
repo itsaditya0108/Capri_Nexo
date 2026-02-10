@@ -6,10 +6,7 @@ import com.company.video_service.entity.VideoProcessingJob;
 import com.company.video_service.entity.VideoProcessingJobStatus;
 import com.company.video_service.entity.VideoStatus;
 import com.company.video_service.entity.VideoUploadSession;
-import com.company.video_service.repository.VideoProcessingJobRepository;
-import com.company.video_service.repository.VideoRepository;
-import com.company.video_service.repository.VideoUploadChunkRepository;
-import com.company.video_service.repository.VideoUploadSessionRepository;
+import com.company.video_service.repository.*;
 import com.company.video_service.service.VideoThumbnailService;
 import com.company.video_service.service.VideoMergeService;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,8 +22,9 @@ public class VideoMergeServiceImpl implements VideoMergeService {
     private final VideoUploadSessionRepository sessionRepository;
     private final VideoUploadChunkRepository chunkRepository;
     private final VideoRepository videoRepository;
-    private final VideoThumbnailService thumbnailService;
     private final VideoProcessingJobRepository processingJobRepository;
+    private final VideoThumbnailRepository thumbnailRepository;
+    private final VideoThumbnailService thumbnailService;
 
     @Value("${video.storage.temp-path}")
     private String tempStoragePath;
@@ -38,12 +36,14 @@ public class VideoMergeServiceImpl implements VideoMergeService {
             VideoUploadChunkRepository chunkRepository,
             VideoRepository videoRepository,
             VideoThumbnailService thumbnailService,
-            VideoProcessingJobRepository processingJobRepository) {
+            VideoProcessingJobRepository processingJobRepository,
+            VideoThumbnailRepository thumbnailRepository) {
         this.sessionRepository = sessionRepository;
         this.chunkRepository = chunkRepository;
         this.videoRepository = videoRepository;
-        this.thumbnailService = thumbnailService;
         this.processingJobRepository = processingJobRepository;
+        this.thumbnailRepository = thumbnailRepository;
+        this.thumbnailService = thumbnailService;
     }
 
     @Override
@@ -72,6 +72,8 @@ public class VideoMergeServiceImpl implements VideoMergeService {
     }
 
     private void mergeUpload(String uploadUid, VideoProcessingJob job) {
+        System.out.println("DEBUG: Starting mergeUpload for uploadUid=" + uploadUid);
+
         VideoUploadSession session = sessionRepository.findByUploadUid(uploadUid)
                 .orElseThrow(() -> new RuntimeException("UPLOAD_SESSION_NOT_FOUND"));
 
@@ -79,114 +81,140 @@ public class VideoMergeServiceImpl implements VideoMergeService {
             throw new RuntimeException("UPLOAD_SESSION_NOT_IN_MERGING_STATE");
         }
 
-        // output folder structure: users/<userId>/videos/<year>/<month>/<uploadUid>/
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        String datePath = String.format("%d/%02d", now.getYear(), now.getMonthValue());
-        String relativeBasePath = "users/" + session.getUserId() + "/videos/" + datePath + "/" + uploadUid;
+        try {
+            // output folder structure: users/<userId>/videos/<year>/<month>/<uploadUid>/
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            String datePath = String.format("%d/%02d", now.getYear(), now.getMonthValue());
+            String relativeBasePath = "users/" + session.getUserId() + "/videos/" + datePath + "/" + uploadUid;
 
-        File outputDir = new File(finalStoragePath, relativeBasePath);
+            File outputDir = new File(finalStoragePath, relativeBasePath);
 
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
-
-        File finalVideoFile = new File(outputDir, "original.mp4");
-
-        // merge chunks
-        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(finalVideoFile))) {
-
-            for (int i = 0; i < session.getTotalChunks(); i++) {
-
-                File chunkFile = new File(tempStoragePath + "/" + uploadUid + "/" + i + ".part");
-
-                if (!chunkFile.exists()) {
-                    throw new RuntimeException("CHUNK_FILE_MISSING_" + i);
-                }
-
-                try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(chunkFile))) {
-                    byte[] buffer = new byte[8192];
-                    int bytesRead;
-
-                    while ((bytesRead = bis.read(buffer)) != -1) {
-                        bos.write(buffer, 0, bytesRead);
-                    }
-                }
+            if (!outputDir.exists()) {
+                outputDir.mkdirs();
             }
 
-        } catch (Exception e) {
-            session.setStatus(UploadSessionStatus.FAILED);
-            session.setErrorCode("MERGE_FAILED");
-            session.setErrorMessage(e.getMessage());
+            File finalVideoFile = new File(outputDir, "original.mp4");
+            System.out.println("DEBUG: Merging to " + finalVideoFile.getAbsolutePath());
+
+            // merge chunks
+            try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(finalVideoFile))) {
+
+                for (int i = 0; i < session.getTotalChunks(); i++) {
+                    File chunkFile = new File(tempStoragePath + "/" + uploadUid + "/" + i + ".part");
+                    if (!chunkFile.exists()) {
+                        throw new RuntimeException("CHUNK_FILE_MISSING_" + i);
+                    }
+                    try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(chunkFile))) {
+                        byte[] buffer = new byte[8192];
+                        int bytesRead;
+                        while ((bytesRead = bis.read(buffer)) != -1) {
+                            bos.write(buffer, 0, bytesRead);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("DEBUG: Merge failed with exception: " + e.getMessage());
+                session.setStatus(UploadSessionStatus.FAILED);
+                session.setErrorCode("MERGE_FAILED");
+                session.setErrorMessage(e.getMessage());
+                session.setUpdatedTimestamp(LocalDateTime.now());
+                sessionRepository.save(session);
+                throw new RuntimeException("MERGE_FAILED: " + e.getMessage(), e);
+            }
+
+            // validate merged size
+            if (finalVideoFile.length() != session.getOriginalFileSize()) {
+                System.out.println("DEBUG: Size mismatch. Expected=" + session.getOriginalFileSize() + " Actual="
+                        + finalVideoFile.length());
+                session.setStatus(UploadSessionStatus.FAILED);
+                session.setErrorCode("MERGED_FILE_SIZE_MISMATCH");
+                session.setErrorMessage(
+                        "Expected=" + session.getOriginalFileSize() + " actual=" + finalVideoFile.length());
+                session.setUpdatedTimestamp(LocalDateTime.now());
+                sessionRepository.save(session);
+                throw new RuntimeException("MERGED_FILE_SIZE_MISMATCH");
+            }
+
+            // update upload session
+            session.setMergedFilePath(finalVideoFile.getAbsolutePath());
+            session.setMergedFileSize(finalVideoFile.length());
+            session.setMergedTimestamp(LocalDateTime.now());
+            session.setStatus(UploadSessionStatus.COMPLETED);
             session.setUpdatedTimestamp(LocalDateTime.now());
             sessionRepository.save(session);
 
-            throw new RuntimeException("MERGE_FAILED: " + e.getMessage(), e);
-        }
-
-        // validate merged size
-        if (finalVideoFile.length() != session.getOriginalFileSize()) {
-            session.setStatus(UploadSessionStatus.FAILED);
-            session.setErrorCode("MERGED_FILE_SIZE_MISMATCH");
-            session.setErrorMessage("Expected=" + session.getOriginalFileSize() + " actual=" + finalVideoFile.length());
-            session.setUpdatedTimestamp(LocalDateTime.now());
-            sessionRepository.save(session);
-
-            throw new RuntimeException("MERGED_FILE_SIZE_MISMATCH");
-        }
-
-        // update upload session
-        session.setMergedFilePath(finalVideoFile.getAbsolutePath());
-        session.setMergedFileSize(finalVideoFile.length());
-        session.setMergedTimestamp(LocalDateTime.now());
-        session.setStatus(UploadSessionStatus.COMPLETED);
-        session.setUpdatedTimestamp(LocalDateTime.now());
-        sessionRepository.save(session);
-
-        // create video record
-        String videoUid = UUID.randomUUID().toString();
-
-        Video video = new Video();
-        video.setVideoUid(videoUid);
-        video.setUserId(session.getUserId());
-        video.setUploadUid(uploadUid);
-        video.setTitle(session.getOriginalFileName());
-        video.setOriginalFilePath(toRelativePath(finalVideoFile.getAbsolutePath()));
-        video.setOriginalFileSize(finalVideoFile.length());
-        video.setMimeType(session.getMimeType());
-        video.setDurationSeconds(session.getDurationSeconds());
-        video.setVideoWidth(session.getVideoWidth());
-        video.setVideoHeight(session.getVideoHeight());
-        video.setStatus(VideoStatus.UPLOADED);
-        video.setCreatedTimestamp(LocalDateTime.now());
-        video.setUpdatedTimestamp(LocalDateTime.now());
-
-        videoRepository.save(video);
-
-        // update job with videoUid
-        job.setVideoUid(videoUid);
-        processingJobRepository.save(job); // save intermediate state
-
-        // generate thumbnail
-        File thumbnailFile = new File(outputDir, "thumbnail.jpg");
-
-        try {
-            thumbnailService.generateThumbnail(finalVideoFile, thumbnailFile);
-
-            video.setThumbnailFilePath(toRelativePath(thumbnailFile.getAbsolutePath()));
-            video.setThumbnailStatus("READY");
-            video.setThumbnailGeneratedTimestamp(LocalDateTime.now());
+            // create video record
+            String videoUid = UUID.randomUUID().toString();
+            Video video = new Video();
+            video.setVideoUid(videoUid);
+            video.setUserId(session.getUserId());
+            video.setUploadUid(uploadUid);
+            video.setTitle(session.getOriginalFileName());
+            video.setOriginalFilePath(toRelativePath(finalVideoFile.getAbsolutePath()));
+            video.setOriginalFileSize(finalVideoFile.length());
+            video.setMimeType(session.getMimeType());
+            video.setDurationSeconds(session.getDurationSeconds());
+            video.setVideoWidth(session.getVideoWidth());
+            video.setVideoHeight(session.getVideoHeight());
+            video.setStatus(VideoStatus.UPLOADED);
+            video.setCreatedTimestamp(LocalDateTime.now());
             video.setUpdatedTimestamp(LocalDateTime.now());
             videoRepository.save(video);
 
-        } catch (Exception e) {
-            video.setThumbnailStatus("FAILED");
-            video.setUpdatedTimestamp(LocalDateTime.now());
-            videoRepository.save(video);
-            // Don't fail the job if thumbnail fails, just mark thumbnail as failed
-        }
+            // update job with videoUid
+            job.setVideoUid(videoUid);
+            processingJobRepository.save(job);
 
-        // cleanup chunk files + chunk rows
-        cleanupChunks(uploadUid);
+            // generate thumbnail
+            File thumbnailFile = new File(outputDir, "thumbnail.jpg");
+            System.out.println("DEBUG: Generating thumbnail to " + thumbnailFile.getAbsolutePath());
+
+            try {
+                if (thumbnailService == null) {
+                    throw new RuntimeException("ThumbnailService is null!");
+                }
+                thumbnailService.generateThumbnail(finalVideoFile, thumbnailFile);
+                System.out.println("DEBUG: Thumbnail generation process completed.");
+
+                if (!thumbnailFile.exists() || thumbnailFile.length() == 0) {
+                    throw new RuntimeException("Thumbnail file not created or empty.");
+                }
+
+                String derivedThumbPath = toRelativePath(thumbnailFile.getAbsolutePath());
+                video.setThumbnailFilePath(derivedThumbPath);
+                video.setThumbnailStatus("READY");
+                video.setThumbnailGeneratedTimestamp(LocalDateTime.now());
+                video.setUpdatedTimestamp(LocalDateTime.now());
+                videoRepository.save(video);
+
+                // Save to VideoThumbnail entity
+                com.company.video_service.entity.VideoThumbnail vt = new com.company.video_service.entity.VideoThumbnail();
+                vt.setVideoUid(videoUid);
+                vt.setThumbnailUid(UUID.randomUUID().toString());
+                vt.setThumbnailPath(derivedThumbPath);
+                vt.setWidth(640); // default/placeholder
+                vt.setHeight(360);
+                vt.setDefault(true);
+
+                System.out.println("DEBUG: Attempting to save VideoThumbnail: " + vt.getThumbnailUid() + " for video: "
+                        + videoUid);
+                com.company.video_service.entity.VideoThumbnail savedVt = thumbnailRepository.saveAndFlush(vt);
+                System.out.println("DEBUG: VideoThumbnail saved. ID: " + savedVt.getVideoThumbnailId());
+
+            } catch (Exception e) {
+                System.out.println("DEBUG: Thumbnail generation failed: " + e.getMessage());
+                e.printStackTrace();
+
+                video.setThumbnailStatus("FAILED");
+                video.setUpdatedTimestamp(LocalDateTime.now());
+                videoRepository.save(video);
+            }
+
+        } finally {
+            // cleanup chunk files + chunk rows
+            System.out.println("DEBUG: Cleaning up chunks for " + uploadUid);
+            cleanupChunks(uploadUid);
+        }
     }
 
     @org.springframework.transaction.annotation.Transactional
@@ -217,14 +245,24 @@ public class VideoMergeServiceImpl implements VideoMergeService {
     private String toRelativePath(String absolutePath) {
         if (absolutePath == null)
             return null;
-        String base = new File(finalStoragePath).getAbsolutePath();
-        String abs = new File(absolutePath).getAbsolutePath();
-        if (abs.startsWith(base)) {
-            String relative = abs.substring(base.length());
-            if (relative.startsWith("/") || relative.startsWith("\\")) {
-                relative = relative.substring(1);
+
+        try {
+            File baseFile = new File(finalStoragePath);
+            File absFile = new File(absolutePath);
+
+            String base = baseFile.getCanonicalPath();
+            String abs = absFile.getCanonicalPath();
+
+            // Case-insensitive check for Windows compatibility
+            if (abs.toLowerCase().startsWith(base.toLowerCase())) {
+                String relative = abs.substring(base.length());
+                if (relative.startsWith(File.separator)) {
+                    relative = relative.substring(1);
+                }
+                return relative.replace("\\", "/");
             }
-            return relative.replace("\\", "/");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return absolutePath;
     }

@@ -27,6 +27,15 @@ public class VideoThumbnailServiceImpl implements VideoThumbnailService {
             processBuilder.redirectErrorStream(true);
             Process process = processBuilder.start();
 
+            // Read output to prevent blocking/deadlock
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("FFMPEG: " + line);
+                }
+            }
+
             int exitCode = process.waitFor();
 
             if (exitCode != 0) {
