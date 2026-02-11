@@ -1,44 +1,47 @@
-package com.company.video_service.config;
+package com.company.video_service.config; // Package for configuration classes
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.context.annotation.Bean; // Bean annotation
+import org.springframework.context.annotation.Configuration; // Configuration annotation
+import org.springframework.context.annotation.Profile; // Profile annotation
+import org.springframework.security.config.annotation.web.builders.HttpSecurity; // HttpSecurity builder
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity; // Enable Web Security annotation
+import org.springframework.security.web.SecurityFilterChain; // Security filter chain
+import org.springframework.web.cors.CorsConfiguration; // CORS configuration class
+import org.springframework.web.cors.CorsConfigurationSource; // CORS source interface
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // URL-based CORS source implementation
 
-import java.util.List;
+import java.util.List; // List interface
 
-@Configuration
-@EnableWebSecurity
-@Profile("!prod")
-public class LocalSecurityConfig {
+@Configuration // Marks this class as a configuration source for beans
+@EnableWebSecurity // Enables Spring Security's web security support
+@Profile("!prod") // Active for any profile EXCEPT "prod" (e.g., dev, test)
+public class LocalSecurityConfig { // Security configuration for local/development environments
 
-    @Bean
+    @Bean // Define the Security Filter Chain for local/dev
     public SecurityFilterChain localFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
+                .csrf(csrf -> csrf.disable()) // Disable CSRF for easier testing
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS with local settings
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // Allow everything, let Manual FilterConfig handle Auth or testing
+                        .anyRequest().permitAll() // Allow ALL requests without authentication for development
+                                                  // convenience
+                // Note: In real scenarios, you might still want auth, but this setup implies
+                // "open" access for dev
                 );
 
-        return http.build();
+        return http.build(); // Build and return the filter chain
     }
 
-    @Bean
+    @Bean // Define CORS configuration source for local/dev
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*")); // Allow ALL origins for local
-        configuration.setAllowedMethods(List.of("*"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowedOriginPatterns(List.of("*")); // Allow ALL origins for local development
+        configuration.setAllowedMethods(List.of("*")); // Allow ALL HTTP methods
+        configuration.setAllowedHeaders(List.of("*")); // Allow ALL headers
+        configuration.setAllowCredentials(true); // Allow credentials
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", configuration); // Apply to all paths
         return source;
     }
 }

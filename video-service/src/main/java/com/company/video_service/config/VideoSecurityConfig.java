@@ -1,72 +1,79 @@
-package com.company.video_service.config;
+package com.company.video_service.config; // Package for configuration classes
 
-import com.company.video_service.security.JwtAuthenticationFilter;
-import com.company.video_service.security.JwtUtil;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.company.video_service.security.JwtAuthenticationFilter; // Import custom JWT filter
+import com.company.video_service.security.JwtUtil; // Import JWT utility
+import org.springframework.beans.factory.annotation.Value; // Value annotation
+import org.springframework.context.annotation.Bean; // Bean annotation
+import org.springframework.context.annotation.Configuration; // Configuration annotation
+import org.springframework.context.annotation.Profile; // Profile annotation
+import org.springframework.security.config.annotation.web.builders.HttpSecurity; // HttpSecurity builder
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity; // Enable Web Security annotation
+import org.springframework.security.config.http.SessionCreationPolicy; // Session creation policy
+import org.springframework.security.web.SecurityFilterChain; // Security filter chain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter; // UsernamePasswordAuthenticationFilter class
+import org.springframework.web.cors.CorsConfiguration; // CORS configuration class
+import org.springframework.web.cors.CorsConfigurationSource; // CORS source interface
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // URL-based CORS source implementation
 
-import java.util.List;
+import java.util.List; // List interface
 
-@Configuration
-@EnableWebSecurity
-@Profile("prod")
-public class VideoSecurityConfig {
+@Configuration // Marks this class as a configuration source for beans
+@EnableWebSecurity // Enables Spring Security's web security support
+@Profile("prod") // Only active when the "prod" profile is active
+public class VideoSecurityConfig { // Security configuration for production environment
 
-    @Value("${auth.service.base-url}")
+    @Value("${auth.service.base-url}") // Inject Auth Service URL from properties
     private String authServiceBaseUrl;
 
-    @Value("${security.jwt.secret}")
+    @Value("${security.jwt.secret}") // Inject JWT secret key from properties
     private String jwtSecret;
 
-    @Bean
+    @Bean // Define JwtUtil bean
     public JwtUtil jwtUtil() {
-        return new JwtUtil(jwtSecret);
+        return new JwtUtil(jwtSecret); // Initialize with secret
     }
 
-    @Bean
+    @Bean // Define JwtAuthenticationFilter bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(JwtUtil jwtUtil) {
-        return new JwtAuthenticationFilter(jwtUtil, authServiceBaseUrl);
+        return new JwtAuthenticationFilter(jwtUtil, authServiceBaseUrl); // Initialize filter with dependencies
     }
 
-    @Bean
+    @Bean // Define CORS configuration source
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Allow all origins for prod to enable cross-port/cross-host access
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowedOriginPatterns(List.of("*")); // Allow any origin pattern
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); // Allow standard HTTP
+                                                                                             // methods
+        configuration.setAllowedHeaders(List.of("*")); // Allow all headers
+        configuration.setAllowCredentials(true); // Allow credentials (cookies, auth headers)
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", configuration); // Apply CORS config to all paths
         return source;
     }
 
-    @Bean
+    @Bean // Define the Security Filter Chain
     public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtFilter) throws Exception {
+            HttpSecurity http, // HttpSecurity object to configure security settings
+            JwtAuthenticationFilter jwtFilter) throws Exception { // Inject custom JWT filter
 
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable()) // Disable CSRF (using stateless APIs)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Configure CORS
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Stateless session
+                                                                                                    // policy (no
+                                                                                                    // server-side
+                                                                                                    // sessions)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().permitAll())
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                        .requestMatchers("/actuator/**").permitAll() // Allow public access to actuator endpoints
+                                                                     // (monitoring)
+                        .requestMatchers("/api/**").authenticated() // Require authentication for API endpoints
+                        .anyRequest().permitAll()) // Allow all other requests (adjust as needed)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class); // Add JWT filter before the
+                                                                                         // standard username/password
+                                                                                         // filter
 
-        return http.build();
+        return http.build(); // Build and return the filter chain
     }
 }
